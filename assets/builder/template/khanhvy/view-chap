@@ -1,0 +1,170 @@
+{% use '_layout' %}
+{% use '_manager' %}
+
+{% set uri = get_uri_segments() %}
+{% from '_bbcode' import bbcode %}
+{% from '_functions' import ago,rwurl,paging,checkExtension,size %}
+{% from '_users' import maunick,getAvtUser,auto %}
+
+{% set id =  uri[1]|split('-')|first %}
+{% set data = select_table_row_data('chap', 'id', id) %}
+{% if data.title %}
+	{% set title = data.title %}
+	{% set slug = data.slug %}
+	{% set content = data.content %}
+	{% set time = data.time %}
+	{% set view = data.view %}
+	{% do update_row_table('chap', 'view', (view+1), 'id', id) %}{# lưu lượt xem hiện tại #}
+	{% set author = data.author %}
+	{% set duser = select_table_row_data('users', 'nick', is_login()) %}
+	{% set dauthor = select_table_row_data('users', 'nick', author) %}
+	{% set chap_uri_manager = '/view-chap/'~data.id~'-'~data.slug %}
+	{{block('head')}}
+	{#=================================================#}
+	{# Từ bài viết chính #}
+	{% set blogid = data.box %}
+	{% set blog = select_table_row_data('blog', 'id', blogid) %}
+	{# blog gồm các trường: id,title,slug,content,time,update_time,category,sticked,blocked,view,author,chaplist,buyfile #}
+	{% set blog_uri_manager = '/forum/'~blog.id~'-'~blog.slug %}
+	{% do update_row_table('blog', 'view', blog.view+1, 'id', blogid) %}
+	{# lưu lại người dùng đã xem #}
+	{% if is_login() and is_login() not in blog.user_view|split('.') %}
+		{% do update_row_table('blog', 'user_view', blog.user_view~is_login()~'.', 'id', blogid) %}
+	{% endif %}
+	{# end lưu #}
+	{# Từ chuyên mục của bài viết chính #}
+	{% set catid = blog.category %}
+	{% set category = select_table_row_data('category', 'id', catid) %}
+	{# category gồm các trường: id,name,slug,content,keyword #}
+	<ul class="breadcrumb" style="z-index:0">
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/"><span itemprop="title"><i class="fa fa-home" aria-hidden="true"></i></span></a></span></li>
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category/{{category.id}}-{{category.slug}}/"><span itemprop="title">{{category.name}}</span></a></span></li>
+	</ul>
+	{# Các chapter từ bài viết chính #}
+    {% set list_chap = select_table_where_data('chap', 'box', blog.id)  %}
+	{% set total_chap = 0 %}
+	{% for c in list_chap %}
+  		{% if c.box == blog.id %}
+    		{% set total_chap = total_chap + 1 %}
+  		{% endif %}
+	{% endfor %}
+{#=============================================================================#}
+{% set list_manager = ['edit','delete','index'] %}
+{% if (is_login() and duser.nick == dauthor.nick) and uri[1] == data.id~'-'~data.slug and uri[2] in list_manager or duser.level > '120' and uri[1] == data.id~'-'~data.slug and uri[2] in list_manager %}
+{% set w3_main4px_content %}
+{#=====QUẢN LÝ BÀI VIẾT=====#}
+{% if uri[2] == 'edit' %}
+	{{block('edit_chap')}}
+{% elseif uri[2] == 'delete' %}
+	{{block('delete_chap')}}
+{#===========MENU===========#}
+{% else %}
+<div class="mainblok">
+  <div class="phdr">Quản lý chương</div>
+  <div class="list1"><a href="{{chap_uri_manager}}/edit">Chỉnh sửa chương</a></div>
+  <div class="list1"><a href="{{blog_uri_manager}}/add-chap">Thêm chương/cập nhật</a></div>
+  <div class="list1"><a href="{{chap_uri_manager}}/delete">Xoá chương này</a></div>
+</div>
+{% endif %}
+<div class="mainblok">
+  <div class="menu"><a href="{{blog_uri_manager}}"><i class="fa fa-chevron-left" aria-hidden="true"></i> Bài viết</a> | <a href="{{chap_uri_manager}}"><i class="fa fa-undo" aria-hidden="true"></i> Chương</a></div>
+</div>
+{#===END QUẢN LÝ BÀI VIẾT===#}
+{% endset %}
+{{block('w3_main4px')}}
+{% else %}
+{#=============================================================================#}
+<style>.video-wrapper{position:relative;padding-bottom:56.25%;height:0;overflow:hidden}.video-wrapper iframe{position:absolute;top:0;left:0;width:100%;height:100%}</style> 
+
+{% set w3_twothird_content %}
+<div style="text-align:right;font-size:14px"><a href="/search" title="Tìm kiếm"><button type="button" class="btn btn-sm btn-primary"><i class="fa fa-search" aria-hidden="true"></i> Tìm kiếm</button></a></div>
+<div class="mainblok">
+  <div class="phdr" style="font-weight:bold;">{% if blog.sticked=='y' %}<i class="fa fa-thumb-tack" aria-hidden="true"></i> {% endif %}{% if blog.blocked=='y' %}<i class="fa fa-lock" aria-hidden="true"></i>{% else %}{% if blog.sticked!='y' %}<i class="fa fa-spinner fa-pulse fa-fw"></i>{% endif %}{% endif %} <a href="/forum/{{blog.id}}-{{blog.slug}}.html">{{blog.title}}</a></div>
+  <div class="menu">
+    <i class="fa fa-eye" aria-hidden="true"></i> {{view}}/{{blog.view}} lượt xem
+  </div>
+</div>{# end div.mainblok #}
+
+
+<div class="mainblok">
+  <div class="title w3-col">
+    <div class="s6"><i class="fa fa-clock-o"></i> {{ago(time)}}</div>
+  </div>
+  <div class="postprofile" itemscope="itemscope" itemtype="http://data-vocabulary.org/Person">
+    <div class="postprofileInner">
+      <div class="profileAvatar"><img src="{{getAvtUser(author)}}" width="38" height="38" alt="{{dauthor.name}}" class="imgAvtUser" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="/user/{{author}}">{{maunick(author)}}</a> <span style="color:{% if dauthor.on < ('now'|date('U')-300) %}red{% else %}green{% endif %}">•</span></div>
+        <div>Bài đăng: {{select_table_where_data('cmt', 'author', author)|length+select_table_where_data('blog', 'author', author)|length-2}}</div>
+      </div>
+      <div class="profileMoreInfo">
+        <div><b itemprop="title">LV: {{dauthor.level|default(0)}}</b></div>
+      </div>
+    </div>
+  </div>
+	{#=================================================#}
+	{# Quản lý chap #}
+	{% if (is_login() and duser.nick == dauthor.nick) or duser.level > '120' %}
+	<div class="menu">
+      <b><i class="fa fa-wrench" aria-hidden="true"></i> Công cụ:</b>
+      &emsp;&emsp;<a href="{{chap_uri_manager}}/edit"><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Chỉnh sửa chap</a>
+      {% if duser.level > '120' %}  / <a href="{{chap_uri_manager}}/delete"><i class="fa fa-trash-o" aria-hidden="true"></i> Xoá chap</a>{% endif %}
+        / <a href="{{blog_uri_manager}}/add-chap"><i class="fa fa-clone" aria-hidden="true"></i> Thêm chap</a>
+	</div>
+	{% endif %}
+	{#=================================================#}
+	{# Nội dung chính #}
+  <div class="menu" id="{{auto()|trim|slice(0,5)}}-{{blog.id+id}}">
+    <div style="text-align:center;font-weight:700;font-size:18px">{{title}}</div>
+    {{bbcode(content)}}
+  </div>
+</div>
+	{#=================================================#}
+	{# Phân trang các chapter - SAI
+	{% set list_chap = select_table_where_data('chap', 'box', blogid) %}
+	<div style="text-align:center" class="topmenu"><div class="pagination">
+	{% for chap in list_chap %}
+      {% set i = loop.index-1 %}
+      {% if chap.id %}
+      	{% set uri_chap = '/view-chap/'~chap.id~'-'~chap.slug %}
+      	{% if list_chap[i+1].id == (id+0) %}<a class="pagenav" href="{{uri_chap}}"><i class="fa fa-arrow-circle-o-right" aria-hidden="true"></i></a>{% endif %}
+		{% if list_chap[i].id  == (id+0) %}<a class="pagenav" href="#"><i class="fa fa-arrow-circle-o-up" aria-hidden="true"></i></a>{% endif %}
+      	{% if list_chap[i-1].id == (id+0) %}<a class="pagenav" href="{{uri_chap}}"><i class="fa fa-arrow-circle-o-left" aria-hidden="true"></i></a>{% endif %}
+      {% endif %}
+	{% endfor %}
+    </div></div>
+	#}
+	{#=================================================#}
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+	{#=================================================#}
+  	{# list chapter #}
+  	{% if total_chap >'1' %}
+<div class="mainblok">
+  <div class="phdr">Cùng chủ đề</div>
+  <div style="max-height:300px;overflow-y:auto">
+  	{% for chapter in list_chap %}
+    {% if chapter.id and chapter.id != id and chapter.box %}<div class="list1"><a class="linkchuong" href="/view-chap/{{chapter.id}}-{{chapter.slug}}/"> {{chapter.title}}</a></div>{% endif %}
+  	{% endfor %}
+  </div>
+</div>
+	{% else %}
+<div class="mainblok">
+  <div class="phdr">Chủ đề tương tự</div>
+  {% for topic in search_key_in_table('blog', 'title', title, 5) %}
+  <div class="list1"><a href="/forum/{{topic.id}}-{{topic.slug}}.html"> {{topic.title}}</a></div>
+  {% endfor %}
+</div>
+  	{% endif %}
+  	{# end list chapter #}
+{% endset %}
+{{block('w3_third')}}
+{#=============================================================================#}
+{% endif %}{# END MANAGER #}
+{% else %}
+	{% set title ='Lỗi' %}
+	{{block('head')}}
+	<div class="rmenu">Chap không tồn tại</div>
+{% endif %}
+{{block('end')}}

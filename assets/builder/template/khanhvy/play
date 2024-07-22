@@ -1,0 +1,691 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% from '_functions' import ago,rwurl,paging %}
+{% from '_users' import maunick,getAvtUser,auto %}
+{% from '_bbcode' import bbcode %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set info_system_bot = select_table_row_data('users', 'nick', system_bot) %}
+
+{% set table_name = 'transaction_history' %}
+{% set url = get_uri_segments() %}
+{% set act = get_get('act') %}
+{% set sender = select_table_row_data('users', 'nick', is_login()) %}
+{% set my_compound = select_table_row_data('user_maduoc', 'nick', is_login()) %}
+{% set my_dragon = select_table_row_data('play_dragon', 'nick', is_login()) %}
+{% set u_mortgage = sender.mortgage|split(',') %}
+{% if is_login() %}
+{% if url[1] == 'farm' %}
+{% include 'play_farm' %}
+{% elseif url[1] == 'dragon' %}
+{% include 'play_dragon' %}
+{% elseif url[1] == 'god-wealth' and url[2] == 'frog' %}
+{% include 'play_frog' %}
+{% else %}
+{#=============================================================================#}
+{% if url[1] in ['vip','farm','dragon','god-wealth','penalty'] %}{% set title = 'Giải trí' %}{% else %}{% set title = 'Cửa hàng' %}{% endif %}
+{{block('head')}}
+{% if url[1] == 'bank' and url[2] in ['do','send-coin','mortgage','history'] %}
+	{% if url[2] == 'do' %}
+{#=============================================================================#}
+{{_self.breadcrumb('Cửa hàng','bank/do', 'Giao dịch')}}
+<style>.trans{display:table;table-layout:fixed;width:100%;text-align:left}.trans div.info{display:table-cell;width:30%}@media (max-width:600px) {.trans{display:block;width:100%;text-align:left}.trans div.info{display:block;width:100%}}</style>
+{% set w3_main4px_content %}
+<div class="mainblok">
+  {% if url[3] != 'xu' %}
+  {#=====MUA XU=====#}
+  <div class="phdr"><i class="fa fa-superpowers" aria-hidden="true"></i> Đổi Tiềm lực</div>
+  {% set tygia = _self.sjc(tygia_sjc('Hồ Chí Minh','2')['buy'])|trim %}
+  {% set trans_min = tygia*10 %}
+  {% set disabled %}{% if sender.do < trans_min %} disabled{% endif %}{% endset %}
+  {% if request_method()|lower == 'post' and sender.do >= get_post('do') %}
+  	{% set do = get_post('do') %}
+  	{% set save_do = sender.do - do %}
+  	{% set xu = do//tygia %}
+  	{% set save_xu = sender.xu + xu %}
+  	{% if do >= trans_min and sender.do >= do %}
+<div class="gmenu">
+	<div><b>Giao dịch thành công!</b> Thông tin:</div>
+	<div>- Số điểm: <b>{{do|number_format}}</b></div>
+	<div>- Nhận tiền: <b>{{xu|number_format}} xu</b></div>
+	<div>- Số dư sau giao dịch: <b>{{save_xu|number_format}} xu</b></div>
+</div>
+  		{#=======CHUYỂN XU=======#}
+  		{% do update_row_table('users', 'xu', save_xu, 'nick', is_login()) %}
+  		{% do update_row_table('users', 'do', save_do, 'nick', is_login()) %}
+  		{#=====END CHUYỂN XU=====#}
+  		{#=====GỬI THÔNG BÁO=====#}
+  		{% set transHistory = {'nick':is_login(),'content':'Mua [b]'~xu~' xu[/b]','time':'now'|date('U')} %}
+  		{% do insert_row_array_table(table_name, transHistory) %}
+  		{#===END GỬI THÔNG BÁO===#}
+	{% else %}
+      {% set notice = 'Tiềm lực cần chuyển phải đạt tối thiếu '~trans_min~' điểm' %}
+  	{% endif %}
+  {% else %}
+  <div class="notice trans" style="margin-top:0;font-size:14px;padding:4px;text-align:left;line-height:1.2em">
+    <div class="info">
+      <div><b>Thông tin</b></div>
+      <div>- Tên người dùng: <b>{{sender.name}}</b> (@{{sender.nick}})</div>
+      <div>- Số dư hiện tại: <b>{{sender.xu|number_format}} xu</b></div>
+      <div>- Tiềm lực: <b>{{sender.do|default(0)|number_format}}</b></div>
+    </div>
+  	<div class="info">
+      <div><b>Quy ước</b></div>
+      <div>- Giao dịch tối thiểu: <b>{{trans_min|number_format}} điểm</b></div>
+      <div>- Tỉ lệ chuyển đổi: <b>{{tygia}} Tiềm lực/xu</b></div>
+    </div>
+    <div class="info">
+      <div><b>Ví dụ</b></div>
+      <div>- Giao dịch: <b>{{(tygia*50)|number_format}} điểm</b></div>
+      <div>- Thành tiền: <b>50 xu</b></div>
+    </div>
+  </div>
+  {% endif %}
+  {% if notice %}<div class="rmenu">{{notice}}{% endif %}
+<form method="post">
+	<div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Tiềm lực cần đổi:</td>
+        <td class="w3-left-align e2"><input type="number" min="1000" name="do" placeholder="0" class="form-control"{{disabled}}/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu w3-center"><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary"{{disabled}}/></div>
+</form>
+  {#===END MUA XU===#}
+  {% else %}
+  {#=====BÁN XU=====#}
+  <div class="phdr"><i class="fa fa-btc" aria-hidden="true"></i> Bán xu</div>
+  {% set tygia = _self.sjc(tygia_sjc('Hồ Chí Minh','2')['sell'])|trim %}
+  {% set trans_min = 100 %}
+  {% set disabled %}{% if sender.xu < trans_min %} disabled{% endif %}{% endset %} 
+  {% if request_method()|lower == 'post' and sender.xu >= get_post('xu') %}
+  	{% set xu = get_post('xu') %}
+  	{% set save_xu = sender.xu - xu %}
+  	{% set do = xu*tygia %}
+  	{% set save_do = sender.do + do %}
+  	{% if (xu % 10) == 0 and xu >= trans_min and sender.xu >= xu %}
+<div class="gmenu">
+	<div><b>Giao dịch thành công!</b> Thông tin:</div>
+	<div>- Xu đã bán: <b>{{xu|number_format}} xu</b></div>
+	<div>- Nhận: <b>{{do|number_format}} Tiềm lực</b></div>
+	<div>- Số dư sau giao dịch: <b>{{save_xu|number_format}} xu</b> / <b>{{save_do|number_format}} Tiềm lực</b></div>
+</div>
+  		{#=======CHUYỂN XU=======#}
+  		{% do update_row_table('users', 'xu', save_xu, 'nick', is_login()) %}
+  		{% do update_row_table('users', 'do', save_do, 'nick', is_login()) %}
+  		{#=====END CHUYỂN XU=====#}
+  		{#=====GỬI THÔNG BÁO=====#}
+  		{% set transHistory = {'nick':is_login(),'content':'Bán [b]'~xu~' xu[/b]','time':'now'|date('U')} %}
+  		{% do insert_row_array_table(table_name, transHistory) %}
+  		{#===END GỬI THÔNG BÁO===#}
+	{% else %}
+      {% set notice = 'Số xu cần bán phải là bội số của 10, và bán tối thiểu '~trans_min~' xu' %}
+  	{% endif %}
+  {% else %}
+  <div class="notice trans" style="margin-top:0;font-size:14px;padding:4px;text-align:left;line-height:1.2em">
+    <div class="info">
+      <div><b>Thông tin</b></div>
+      <div>- Tên người dùng: <b>{{sender.name}}</b> (@{{sender.nick}})</div>
+      <div>- Số dư hiện tại: <b>{{sender.xu|number_format}} xu</b></div>
+      <div>- Tiềm lực: <b>{{sender.do|default(0)|number_format}}</b></div>
+    </div>
+  	<div class="info">
+      <div><b>Quy ước</b></div>
+      <div>- Giao dịch tối thiểu: <b>10 xu</b></div>
+      <div>- Tỉ lệ chuyển đổi: <b>{{tygia}} Tiềm lực/xu</b></div>
+    </div>
+    <div class="info">
+      <div><b>Ví dụ</b></div>
+      <div>- Giao dịch: <b>100 xu</b></div>
+      <div>- Nhận về: <b>{{(tygia*100)|number_format}} Tiềm lực</b></div>
+    </div>
+  </div>
+  {% endif %}
+  {% if notice %}<div class="rmenu">{{notice}}{% endif %}
+<form method="post">
+	<div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Số xu muốn bán ra:</td>
+        <td class="w3-left-align e2"><input type="number" min="100" name="xu" placeholder="0" class="form-control"{{disabled}}/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu w3-center"><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary"{{disabled}}/></div>
+</form>
+  {#===END BÁN XU===#}
+  {% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+	{% elseif url[2] == 'send-coin' %}
+{#=============================================================================#}
+{{_self.breadcrumb('Cửa hàng','bank/send-coin', 'Giao dịch')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+<div class="phdr"><i class="fa fa-btc" aria-hidden="true"></i> Chuyển xu</div>
+		{% if request_method()|lower == 'post' and u_mortgage|length < '2' %}
+			{% set nick = get_post('username')|replace({'@':'',' ':' '})|lower %}
+			{% set receiver = select_table_row_data('users', 'nick', nick) %}
+			{% if receiver.id %}
+				{% set xu = get_post('coin') %}
+				{% if (xu % 10) == 0 and xu >= 100 and sender.xu >= xu %}
+					{% set trans = (xu*10)//100 %}
+                    {% set xu_sender = sender.xu - (trans + xu) %}
+                    {% set xu_receiver = receiver.xu + xu %}            
+<div class="gmenu">
+	<div><b>Giao dịch thành công!</b> Thông tin:</div>
+	<div>- Người gửi: <b>{{sender.name}}</b></div>
+	<div>- Người nhận: <b>{{receiver.name}}</b></div>
+	<div>- Nhận tiền: <b>{{xu}} xu</b></div>
+	<div>- Phí phát sinh: <b>{{trans}} xu</b></div>
+	<div>- Thành tiền: <b>{{trans + xu}} xu</b></div>
+	<div>- Số dư sau giao dịch: <b>{{xu_sender}} xu</b></div>
+</div>
+                    {#=======CHUYỂN XU=======#}
+                    {% do update_row_table('users', 'xu', xu_sender, 'nick', is_login()) %}
+                    {% do update_row_table('users', 'xu', xu_receiver, 'id', receiver.id) %}
+                    {#=====END CHUYỂN XU=====#}
+                    {#=====GỬI THÔNG BÁO=====#}
+                    {% set notify = '@'~is_login()~' vừa chuyển cho bạn [b]'~xu~'[/b] xu' %}
+                    {% set rows_receiver = {'sender_receiver':receiver.nick~'_'~system_bot,'nick':system_bot,'content':notify,'time':'now'|date('U'),'view':'no'} %}
+                    {% do insert_row_array_table('mail', rows_receiver) %}
+                    {% set transHistory = {'nick':is_login(),'content':'Chuyển [b]'~xu~' xu[/b] cho @'~receiver.nick,'time':'now'|date('U')} %}
+                    {% do insert_row_array_table(table_name, transHistory) %}
+                    {#===END GỬI THÔNG BÁO===#}
+				{% else %}
+<div class="rmenu">Số tiền cần chuyển phải là bội số của 10, và phải chuyển tối thiếu 100 xu</div>
+				{% endif %}
+			{% else %}
+<div class="rmenu">Người dùng <b>@{{nick}}</b> không tồn tại!</div>
+			{% endif %}
+		{% else %}
+<style>.trans{display:table;table-layout:fixed;width:100%;text-align:left}.trans div.info{display:table-cell;width:30%}@media (max-width:600px) {.trans{display:block;width:100%;text-align:left}.trans div.info{display:block;width:100%}}</style>
+<div class="notice trans" style="margin-top:0;font-size:14px;padding:4px;text-align:left;line-height:1.2em">
+  <div class="info">
+    <div><b>Thông tin</b></div>
+    <div>- Tên người dùng: <b>{{sender.name}}</b> (@{{sender.nick}})</div>
+    <div>- Số dư hiện tại: <b>{{sender.xu|number_format}} xu</b></div>
+    {% if u_mortgage|length >= '2' %}
+    <div>- Có khoản nợ: <b>{{u_mortgage[1]|number_format}} xu</b></div>
+    {% endif %}
+  </div>
+  <div class="info">
+    <div><b>Yêu cầu</b></div>
+    <div>- Giao dịch tối thiểu: <b>100 xu</b></div>
+    <div>- Phí dịch vụ: <b>10%</b></div>
+  </div>
+  <div class="info">
+    <div><b>Ví dụ</b></div>
+    <div>- Giao dịch: <b>1000 xu</b></div>
+    <div>- Phí: <b>100 xu</b></div>
+    <div>- Thành tiền: <b>1100 xu</b></div>
+  </div>
+</div>
+		{% endif %}
+  {% set disabled %}{% if u_mortgage|length >= '2' %} disabled{% endif %}{% endset %}
+  {% if u_mortgage|length < '2' %}
+<script src="/autocomplete.js"></script>
+<link type="text/css" rel="stylesheet" href="/autocomplete.css" media="all,handheld"/>
+  {% endif %}
+<style>.e2 input{width:100%}</style>
+<form method="post">
+  <div class="menu autocomplete">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Tên người nhận:</td>
+        <td class="w3-left-align e2"><input type="text" name="username" placeholder="Tìm kiếm với @nick" id="search-user" class="form-control"{{disabled}}/></td>
+      </tr>
+      <tr>
+        <td class="e1">Số xu chuyển:</td>
+        <td class="w3-left-align e2"><input type="number" min="100" name="coin" placeholder="0" class="form-control"{{disabled}}/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu w3-center"><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary"{{disabled}}/></div>
+</form>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+  {% if u_mortgage|length < '2' %}
+<script>
+  var user = [];
+  var data = "{% for user in select_table_data('users', 'id', 'asc') %}{% if user.id %}{{user.nick}} @ {% endif %}{% endfor %}";
+  var sp = data.split("@");
+  for(i in sp){
+    user[i] = sp [i].trim();
+  }
+  var input = document.querySelector("#search-user");
+  autocomplete(input,user)
+</script>
+  {% endif %}
+	{% elseif url[2] == 'mortgage' %}
+{#=============================================================================#}
+{{_self.breadcrumb('Cửa hàng','bank/mortgage','Giao dịch')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-btc" aria-hidden="true"></i> Vay xu</div>
+    {% set repayment_period_day = 60*60*24 %}
+    {% set repayment_period = repayment_period_day*30 %}
+	{% if request_method()|lower == 'post' and u_mortgage|length < '2' %}
+  		{% set mortgage = get_post('mortgage') %}
+		{% if (mortgage % 10) == 0 or mortgage in 100..50000 or sender.xu < 500 %}
+  			{% set after_borrowing = sender.xu + mortgage %}
+  			{% set time_start = 'now'|date('U')+repayment_period %}
+  			{% set save_mortgage = time_start~','~mortgage %}
+  			{% do update_row_table('users', 'xu', after_borrowing, 'nick', is_login()) %}
+  			{% do update_row_table('users', 'mortgage', save_mortgage, 'nick', is_login()) %}
+			{% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' vừa vay [b]'~mortgage~' xu[/b]!'}) %}
+            {% set transHistory = {'nick':is_login(),'content':'['~time_start|md5|slice(0,8)|upper~'] Vay [b]'~mortgage~' xu[/b]','time':'now'|date('U')} %}
+            {% do insert_row_array_table(table_name, transHistory) %}
+<div class="gmenu">
+  <div><b>Giao dịch thành công!</b> Thông tin:</div>
+  <div>- Khách hàng: <b>{{sender.name}}</b></div>
+  <div>- Khoản vay: <b>{{mortgage|number_format}} xu</b></div>
+  <div>- Lãi ngày: <b>1%</b></div>
+  <div>- Thời điểm trả nợ: <b>Tối thiểu sau 7 ngày vay vốn</b></div>
+  <div>- Hạn chót: <b>{{time_start|date('d/m/Y')}}</b></div>
+  <div>- Số dư sau giao dịch: <b>{{after_borrowing}} xu</b></div>
+  <div><a href="/{{url|join('/')}}"><button type="button" class="btn btn-sm btn-primary">Tra cứu khoản nợ</button></a></div>
+</div>
+		{% else %}
+<div class="rmenu">Số tiền cần vay phải là bội số của 10, tối thiếu 100 xu, trong tài khoản còn ít nhất 500 xu</div>
+  		{% endif %}
+  	{% else %}
+  <style>.loan{display:table;table-layout:fixed;width:100%;text-align:left}.loan div.info{display:table-cell;width:50%}@media (max-width:600px) {.loan{display:block;width:100%;text-align:left}.loan div.info{display:block;width:100%}}</style>
+  <div class="notice loan" style="margin-top:0;font-size:14px;padding:4px;text-align:left;line-height:1.2em">
+    <div class="info">
+      <div><b>Thông tin</b></div>
+      <div>- Tên người dùng: <b>{{sender.name}}</b> (@{{sender.nick}})</div>
+      <div>- Số dư hiện tại: <b>{{sender.xu|number_format}} xu</b></div>
+      <div>- Ngân hàng: <b>{{info_system_bot.name}}</b></div>
+    </div>
+    <div class="info">
+      <div><b>Yêu cầu</b></div>
+      <div>- Khoản vay tối thiểu: <b>100 xu</b></div>
+      <div>- Lãi ngày: <b>1%</b></div>
+      <div>- Thời gian hoàn trả: <b>30 ngày</b></div>
+      <div>- Tài sản thế chấp: <b>tên tài khoản và dữ liệu</b></div>
+    </div>
+  </div>
+  	{% endif %}
+  	{% if sender.mortgage|length >= '2' %}
+  	{% set time_start = u_mortgage[0] %}
+  	{% set xu_mortgage = u_mortgage[1] %}
+	{% set countdown = 30 - _self.countdown(time_start, 'd')|trim %}
+  <div class="menu">
+    <div style="text-align:center;font-weight:700;color:orange">Thông tin vay nợ</div>
+    <table style="width:100%">
+      <tr>
+        <td class="e3">Mã giao dịch:</td>
+        <td class="w3-left-align e2">{{time_start|md5|slice(0,8)|upper}}</td>
+      </tr>
+      <tr>
+        <td class="e3">Khoản vay:</td>
+        <td class="w3-left-align e2">{{xu_mortgage|number_format}} xu</td>
+      </tr>
+      <tr>
+        <td class="e3">Hạn chót:</td>
+        <td class="w3-left-align e2">{{time_start|date('d/m/Y')}}</td>
+      </tr>
+      <tr>
+        <td class="e3">Thời gian còn lại:</td>
+        <td class="w3-left-align e2">
+          <date>0</date> / <time>0 : 0 : 0</time>
+        </td>
+      </tr>
+      <tr>
+        <td class="e3">Lãi hiện tại:</td>
+        <td class="w3-left-align e2">{{_self.simple_profit(xu_mortgage, countdown)|trim}} xu</td>
+      </tr>
+	{% if sender.xu > _self.simple_profit(xu_mortgage, countdown)|trim and countdown > 7 %}
+      <tr>
+        <td class="e3">Trạng thái:</td>
+        <td class="w3-left-align e2">Đủ điều kiện để trả nợ</td>
+      </tr>
+    </table>
+    	{% if act == 'pay-off' %}
+   			{% set repay = _self.simple_profit(xu_mortgage, countdown)|trim+xu_mortgage %}
+    		{% do update_row_table('users', 'xu', (sender.xu-repay), 'nick', is_login()) %}
+  			{% do update_row_table('users', 'mortgage', '0', 'nick', is_login()) %}
+            {% set transHistory = {'nick':is_login(),'content':'['~time_start|md5|slice(0,8)|upper~'] Trả nợ','time':'now'|date('U')} %}
+            {% do insert_row_array_table(table_name, transHistory) %}
+    		{{redirect('/'~url|join('/'))}}
+    	{% else %}
+    	<div class="w3-center"><a href="?act=pay-off"><button type="button" class="btn btn-sm btn-primary">Trả nợ</button></a></div>
+    	{% endif %}
+    {% else %}
+      <tr>
+        <td class="e3">Trạng thái:</td>
+        <td class="w3-left-align e2">Chưa đủ điều kiện để trả nợ</td>
+      </tr>
+    </table>
+    {% endif %}
+  </div>
+	<script>
+      var UnixTimeInFuture = {{time_start*1000}};
+	</script>
+  	<script src="/countdown.js"></script>
+  	{% else %}
+<form method="post">
+	<div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Số xu vay mượn:</td>
+        <td class="w3-left-align e2"><input type="number" min="100" max="50000" name="mortgage" placeholder="0" class="form-control"/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu w3-center"><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary"/></div>
+</form>
+  	{% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+	{% else %}
+{#=============================================================================#}
+{{_self.breadcrumb('Cửa hàng')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr">Lịch sử giao dịch</div>
+  {% set list = select_table_where_data(table_name, 'nick', is_login(), 'id', 'desc')  %}
+  {% set total = list|length-1 %}
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+  	{% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p = get_get('page') %}
+  {% if p matches '/[a-zA-z]|%/' or p<1 %}
+  	{% set p = 1 %}
+  {% endif %}
+  {% if p > page_max %}
+  	{% set p = page_max %}
+  {% endif %}
+  {% set st = p*per-per %}
+{% if total >= '0' %}
+  {% for trans in select_table(table_name,'*',{'nick':is_login()},'id','desc',{'start':st,'end':per}) %}
+  <div class="menu">{{bbcode(trans.content)}} ({{ago(trans.time)}})</div>
+  {% endfor %}
+  {{paging(url|join('/')~'/?page=',p,page_max)}}
+{% else %}
+  <div class="menu">Danh sách trống</div>
+{% endif %}
+
+
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+	{% endif %}
+{#=============================================================================#}
+{% elseif url[1] == 'file-trading' %}
+{{_self.breadcrumb('Cửa hàng','file-trading','Tập tin')}}
+{% set w3_main4px_content %}
+  {{block('file_list')}}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'penalty' %}
+{{_self.breadcrumb('Giải trí','penalty','Vua phá lưới')}}
+{% set w3_main4px_content %}
+  {% include 'play_penalty' %}
+{% endset %}
+{{block('w3_main4px')}}
+{% elseif url[1] == 'god-wealth' %}
+{{_self.breadcrumb('Giải trí','god-wealth','Khu thần tài')}}
+{% set w3_main4px_content %}
+  {% include 'play_god-wealth' %}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'border' %}
+{{_self.breadcrumb('Cửa hàng','border','Trang trí nick')}}
+{% set w3_main4px_content %}
+  {% set user_style = sender.style|trim|split('.') %}
+  {% set user_style_shadow = user_style[0]|default(0) %}
+  {% set user_style_color = user_style[1]|default(0) %}
+  {% set user_style_avatar = user_style[2]|default(0) %}
+  {% set user_style_list = {'shadow':user_style_shadow,'color':user_style_color,'avatar':user_style_avatar} %}
+  {% set select_color = {'change-shadow':['shadow','Màu phát sáng tên nick'],'change-color':['color','Màu tên nick'],'change-avatar':['avatar','Màu phát sáng viền avatar']} %}
+  <div class="mainblok">
+  {% if act in ['change-shadow','change-color','change-avatar'] %}
+    {% set new_style_shadow,new_style_color,new_style_avatar = get_post('shadow'),get_post('color'),get_post('avatar') %}
+    {% set new_style_list = {'change-shadow':new_style_shadow,'change-color':new_style_color,'change-avatar':new_style_avatar} %}
+  	<div class="phdr" style="font-weight:700">{{select_color[act][1]}}</div>
+    {% if request_method()|lower == 'post' %}
+    	{% if new_style_list[act] matches '/^[a-zA-Z0-9\\-\\_]+[a-zA-Z0-9\\-\\_]$/' or new_style_list[act] in [0, 000, 000000] %}
+    		{% if my_compound['botmathuat'] >= 1 %}
+    			{% if act == 'change-shadow' %}
+    				{% set new_style_save = new_style_shadow~'.'~user_style_color~'.'~user_style_avatar %}
+    			{% elseif act == 'change-color' %}
+    				{% set new_style_save = user_style_shadow~'.'~new_style_color~'.'~user_style_avatar %}
+    			{% else %}
+    				{% set new_style_save = user_style_shadow~'.'~user_style_color~'.'~new_style_avatar %}
+    			{% endif %}
+    			{% do update_row_table('users', 'style', new_style_save, 'nick', is_login()) %}
+    			{% do update_row_table('user_maduoc', 'botmathuat', (my_compound['botmathuat']|trim-1), 'nick', is_login()) %}
+    <div class="rmenu">Chỉnh sửa thành công! Bạn đã mất 1 bột ma thuật!</div>
+    		{% else %}
+    <div class="rmenu">Bạn cần có ít nhất 1 bột ma thuật để thực hiện hành động này.</div>
+    		{% endif %}
+    	{% else %}
+    <div class="rmenu">Hoá phép không thành công! Mã màu không hợp lệ!</div>
+    	{% endif %}
+    {% endif %}
+    <form method="post">
+    {% for change,select in select_color %}
+    	{% if change == act %}
+      <div class="d-menu">
+        <div>Mã màu: (Nhập số 0 để tắt)</div>
+        <div>#<input name="{{select[0]}}" type="text" id="color-picker-horizontal" maxlength="6" value="{{user_style_list[select[0]]}}" style="max-width:150px;display:inline-block" class="form-control"/></div>
+        <p><button type="submit" class="btn-sm btn-warning">Đổi màu</button></p>
+      </div>
+    	{% endif %}
+    {% endfor %}
+    </form>
+  </div>
+  <div class="mainblok">
+    <div class="phdr" style="font-weight:700;text-align:center">Bảng mã màu</div>
+    <div class="menu" style="text-align:center;padding:2px">
+      {% include 'play_bangmamau' %}
+    </div>
+  {% else %}
+  	<div class="phdr" style="font-weight:700">Danh mục</div>
+    <div class="notice" style="margin:0;border-radius:0">Hãy cân nhắc kỹ khi thực hiện thao tác này. Khi bạn tích vào ô thay đổi của mỗi lựa chọn dưới đây, bạn sẽ mất 1 bột ma thuật. Nếu bạn tích chọn cả 3, bạn sẽ mất 3 bột ma thuật</div>
+    <div class="list1"><a href="?act=change-color">Chỉnh sửa màu tên nick</a></div>
+    <div class="list1"><a href="?act=change-shadow">Chỉnh sửa màu phát sáng tên nick</a></div>
+    <div class="list1"><a href="?act=change-avatar">Chỉnh sửa màu phát sáng viền avatar</a></div>
+  {% endif %}
+  </div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'vip' %}
+  {% set vip_exp = [60, 300, 600, 1000, 1500, 1800, 2100, 2500] %}
+  {% set vip_max_plots = [1, 3, 5, 8, 12, 16, 20, 24] %}
+  {% set vip_current = 0 %}
+  {% for vip_level in vip_exp %}
+  	{% if sender.vip_exp >= vip_level %}
+  		{% set vip_current = loop.index %}
+  	{% endif %}
+  {% endfor %}
+  {% set tygia = _self.sjc(tygia_sjc('Hồ Chí Minh','2')['sell'])|trim %}
+  {% set vip_update = vip_exp[vip_current]*(tygia+50) %}
+  {% set max_plot = 24+vip_max_plots[vip_current-1]|default(0) %}
+{% set w3_main4px_content %}
+  {% if url[2] == 'gift' %}
+  {#=======BÁO DANH=======#}
+  {% set today = 'now'|date('d/m/Y','Asia/Ho_Chi_Minh') %}
+  {% set base = 10 %}
+{{_self.breadcrumb('Giải trí','vip/gift','Nhận quà')}}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700">Hộp quà may mắn</div>
+  {% set limit_atk = 3 %}
+  {% if request_method()|lower == 'post' %}
+  	{% if vip_current >= 1 %}{% set xbase = (tygia+10)*vip_current %}{% else %}{% set xbase = tygia %}{% endif %}
+  	{% set gift = xbase %}
+  	{% if get_post('gift') == 'do' %}{% set gift, gift_type = xbase*base, 'do' %}{% else %}{% set gift_type = 'xu' %}{% endif %}
+  	{% if today != sender.login %}
+  <div class="gmenu">Bạn nhận được <b>{{gift|number_format}} {{gift_type == 'do' ? 'Tiềm lực' : 'Xu'}}</b> từ hộp quà may mắn</div>
+  		{% do update_row_table('users', gift_type, (sender[gift_type]+gift), 'nick', is_login()) %}
+  		{% do update_row_table('users', 'login', today, 'nick', is_login()) %}
+  		{% do update_row_table('play_dragon', 'atk', (my_dragon['atk'] + limit_atk), 'nick', is_login()) %}
+  		{{file_header('Refresh: 5; url=/play/vip/gift')}}
+    {% endif %}
+  {% endif %}
+  <div class="menu">
+    <b>Lưu ý:</b> Mỗi ngày bạn chỉ có thể nhận quà một lần!
+    <br/>Giá trị phần quà như sau:
+    <br/>- Thành viên thường: <b>{{limit_atk}} lượt tấn công rồng</b> + <b>{{tygia}} xu</b> hoặc <b>{{tygia*base}} Tiềm lực</b>
+    <br/>- Thành viên <span style="color:red;font-weight:700">[VIP X]</span>: <b>{{limit_atk}} lượt tấn công rồng</b> + <b>{{tygia+10}}*X xu</b> hoặc <b>{{(tygia+10)*base}}*X Tiềm lực</b>
+    {% if today != sender.login %}
+    <div style="padding:2px">
+      <form method="post">
+        <input type="radio" name="gift" value="xu"/> Nhận xu
+        <br/><input type="radio" name="gift" value="do"/> Nhận tiềm lực
+        <br/><button type="submit" class="btn-primary">Nhận quà</button>
+      </form>
+    </div>
+    {% else %}
+    <br/>
+    <br/><span style="color:#7f1ea6;font-weight:700">Bạn đã nhận quà hôm nay rồi! Hãy quay lại đây vào ngày mai nhé!</span>
+    {% endif %}
+  </div>
+</div>
+  {#=====END BÁO DANH=====#}
+  {% else %}
+  {#=====NÂNG CẤP VIP=====#}
+{{_self.breadcrumb('Cửa hàng','vip','Thành viên VIP')}}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700">Mua danh hiệu VIP</div>
+  <div class="menu">
+    <div style="text-align:center;color:#7f1ea6;font-weight:700">Chào mừng bạn đến với VIP Team</div>
+    <br/>Để khẳng định danh vọng, thứ hạng của bạn trên diễn đàn hãy mua danh hiệu VIP.
+    <br/>Khi có được danh hiệu <span style="color:red;font-weight:700">[VIP]</span> bạn sẽ nhận được rất nhiều ưu đãi và quyền lợi khi "Hành tẩu giang hồ"...
+    <br/>Khi mua xong bạn sẽ nhận được danh hiệu <span style="color:red;font-weight:700">[VIP]</span> cấp 1, có thể dùng tiền để nâng lên cấp 2 để hưởng nhiều ưu đãi mới.
+    <br/>Sau mỗi lần nâng cấp <span style="color:red;font-weight:700">[VIP]</span> thành công, bạn sẽ nhận được <b>{{tygia}} xu</b>.
+    <br/>
+    <br/>&#x2022; VIP hiện tại: {{vip_current}}/<b>{{vip_exp|length}}</b>
+    <br/>&#x2022; Đất trồng tối đa: <b>{{max_plot}}</b>/48 ô đất
+  {% if max_plot < 48 %}
+    <br/>&#x2022; Điều kiện mua <span style="color:red;font-weight:700">[VIP {{vip_current+1}}]</span>: Tiềm lực tối thiểu đạt <b>{{vip_update|number_format}}</b> điểm (<span style="color:red">{{sender.do >= vip_update ? 'Đã đạt' : 'Chưa đạt'}}</span>)
+    {% if sender.do >= vip_update %}
+    <br/><br/>
+    {% if request_method()|lower == 'post' %}
+    	{% if sender.do >= vip_update %}
+    		{% do update_row_table('users', 'do', (sender.do-vip_update), 'nick', is_login()) %}
+        	{% do update_row_table('users', 'xu', (sender.xu+tygia), 'nick', is_login()) %}
+    		{% do update_row_table('users', 'vip_exp', vip_exp[vip_current], 'nick', is_login()) %}
+    		{{redirect('/play/vip')}}
+    	{% endif %}
+    {% endif %}
+    <div style="text-align:center">
+      <form method="post">
+        <button type="submit" class="btn-warning">Nâng cấp VIP</button>
+      </form>
+    </div>
+    {% endif %}
+  {% endif %}
+  </div>
+</div>
+  {#===END NÂNG CẤP VIP===#}
+  {% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% else %}
+{{_self.breadcrumb('Cửa hàng')}}
+{% set w3_twothird_content %}
+<div class="mainblok">
+  <div class="phdr" id="service">Dịch vụ</div>
+  <div class="list1"><a href="/play/bank/do">Mua xu</a> / <a href="/play/bank/do/xu">Bán xu</a></div>
+  <div class="list1"><a href="/play/border">Trang trí nick</a></div>
+  <div class="list1"><a href="/play/bank/send-coin">Chuyển tiền</a></div>
+  <div class="list1"><a href="/play/bank/mortgage">Vay thế chấp</a></div>
+  <div class="list1"><a href="/play/file-trading">Chợ giời tập tin</a></div>
+  <div class="list1"><a href="/play/vip">Nâng cấp <span style="color:red;font-weight:700">[VIP]</span></a></div>
+  <div class="list1"><a href="/play/bank/history">Lịch sử giao dịch</a></div>
+</div>
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+<div class="mainblok">
+  <div class="phdr" id="game">Giải trí</div>
+  <div class="list1"><a href="/play/vip/gift" style="font-weight:700;color:#7f1ea6" title="Nhận quà">Báo danh hằng ngày</a></div>
+  <div class="list1"><a href="/play/farm">Nông trại</a> / Quầy thương buôn</div>
+  <div class="list1"><a href="/play/dragon">Đấu trường rồng</a></div>
+  <div class="list1"><a href="/play/god-wealth">Khu thần tài</a></div>
+  <div class="list1"><a href="/play/penalty">Vua phá lưới</a></div>
+  <div class="list1"><a href="/maykiemtradokho">Máy kiểm tra độ khờ</a></div>
+</div>
+{% endset %}
+{{block('w3_third')}}
+{% endif %}
+
+{% macro breadcrumb(tit, uri, text) %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/play">{{tit}}</a></li>
+  {% if uri and text %}
+  <li><a href="/play/{{uri}}">{{text}}</a></li>
+  {% endif %}
+</ul>
+{% endmacro %}
+{% macro simple_profit(V, n) %}
+	{% set V, n = V|trim, n|trim %}
+	{% set i = 0.01 %}
+	{# lãi đơn
+	#đầu tư V xu ở hiện tại
+	#lãi suất i một chu kỳ
+	#lãi tức sinh ra sau 1 chu kỳ: V*i #}
+	{{V*i*n}}
+{% endmacro %}
+{# lãi tức = vốn tích luỹ - vốn gốc #}
+{% macro compounding(V, n) %}
+	{% set V, n = V|trim, n|trim %}
+	{% set i = 0.01 %}
+	{# lãi kép
+	#đầu tư V xu ở hiện tại
+	#lãi suất i một chu kỳ
+	#cả gốc và lãi sau 1 chu kỳ: V*(1+i) #}
+	{{V*((1+i)**n-V)}}
+{% endmacro %}
+{% macro countdown(TimeInFuture, type) %}
+	{% spaceless %}
+		{% set now = 'now'|date('U') %}
+        {% set diff = TimeInFuture - now %}
+        {% if diff > 0 %}
+            {% set days = (diff / 86400)|round(0,'floor') %}
+            {% set hours = (diff / 3600)|round(0,'floor') %}
+            {% set minutes = (diff / 60)|round(0,'floor') %}
+            {% set seconds = diff %}
+            {% if type == 'd' %}
+                {{days}}
+            {% elseif type == 'h' %}
+                {{hours}}
+            {% elseif type == 'm' %}
+                {{minutes}}
+            {% elseif type == 's' %}
+                {{seconds}}
+            {% else %}
+                {{days}} ngày / {{hours}}:{{minutes}}:{{seconds}}
+            {% endif %}
+        {% else %}
+            0
+        {% endif %}
+	{% endspaceless %}
+{% endmacro %}
+  
+{% macro sjc(input) %}{% spaceless %}
+	{#{{input|replace({'.':''})|slice(0,2)}}#}
+  	{{rounding('ceil',input)}}
+{% endspaceless %}{% endmacro %}
+{{block('end')}}
+{#=============================================================================#}
+{% endif %}{#END FARM#}
+{% else %}
+	{{redirect('/index')}}
+{% endif %}

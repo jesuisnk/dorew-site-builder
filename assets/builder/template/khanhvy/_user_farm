@@ -1,0 +1,403 @@
+{% block act_buy_plot %}
+{#mở rộng đất bằng forum_money#}
+<div class="gmenu"><b>{{name_forum_money|capitalize}}: <span style="color:red">{{user[forum_money]|number_format}}</span></b></div>
+{% if count < max_plot %}
+	{% set pay = price[count - 6] %}
+    {% if user[forum_money] >= pay %}
+		{% if get_post('submit') %}
+  			{% do insert_row_table(farm_area, 'user_id', user.id) %}
+  			{% do update_row_array_table('users', {(forum_money):user[forum_money] - pay}, 'id', user.id) %}
+  			{{redirect('/'~url|join('/'))}}
+		{% else %}
+<div class="notice" style="margin:0;padding:7px;font-size:16px;text-align:left;font-weight:700;border-radius:0;font-weight:400">Bạn có chắc chắn muốn mở thêm một ô đất? Giá của ô đất này là: <b>{{pay|number_format}}</b> {{name_forum_money}}</div>
+<form action="?act=buy_plot" method="post" class="menu" style="text-align:center">
+  <input type="hidden" name="token" value="{{token}}" />
+  <button type="submit" name="submit" value="Đồng ý" class="btn btn-primary btn-block">Đồng ý</button>
+</form>
+		{% endif %}
+	{% else %}
+<div class="rmenu">Bạn cần <b>{{pay|number_format}}</b> {{name_forum_money}} mới có thể mở ô đất này!</div>
+	{% endif %}
+{% else %}
+<div class="rmenu">Số ô đất của bạn đã đạt tối đa!</div>
+{% endif %}
+{% endblock %}
+
+{#=============================================================================#}
+
+{% block act_star_fruit_tree %}
+{#nâng khế bằng farm_money#}
+{% import 'play_farm' as farm %}
+{% set sft_product_per_level = 10 %}
+{% set sft_product = 40 + user['sft_level'] * sft_product_per_level %}
+{% set sft_price = [500, 2000, 4500, 8000, 12500, 18000, 24500, 32000, 40500, 55000, 66550, 79950] %}
+<div class="notice" style="margin:0;padding:7px;font-size:16px;text-align:left;font-weight:700;border-radius:0"><b>Cây khế</b></div>
+<div class="farm_grass">
+  <div class="w3-center star_fruit_tree_2">
+    <div><img src="/star_fruit_tree{{sft_timer ? '' : '_1'}}.png"/></div>
+    <span class="textbox" style="font-weight:700">Cây khế Lv. {{user['sft_level']}} {{user['sft_level'] < sft_max_level and sft_timer and mod != 'upgrade' ? ' - <a href="?act=star_fruit_tree&mod=upgrade">Nâng cấp</a>':''}}</span>
+  </div>
+  <div class="controls">
+    {% if sft_timer %}
+    	{% if mod == 'upgrade' %}
+    	{% if user['sft_level'] < sft_max_level %}
+            {% set pay_sft_price %}{% if user['sft_level'] == '0' %}200{% else %}{{sft_price[user['sft_level'] - 1]}}{% endif %}{% endset %}
+            {% set pay_sft_price = pay_sft_price|trim %}
+            {% if get_post('submit') %}
+                {% if user[farm_money] >= sft_price[user['sft_level'] - 1] %}
+    				{% do update_row_array_table('users', {(farm_money):(user[farm_money] - pay_sft_price),'sft_level':(user['sft_level'] + 1)}, 'id', user.id) %}
+    <div class="textbox">Nâng cấp thành công!</div>
+				{% else %}
+    <div class="textbox bg-notif">Bạn cần {{pay_sft_price}} {{name_farm_money}} mới có thể nâng cấp cây khế!</div>
+				{% endif %}
+			{% else %}
+    <div class="textbox">
+      Cấp tiếp theo: {{user['sft_level'] + 1}}<br/>
+      Thời gian sinh trưởng: {{farm.timer(sft_time - sft_time_per_level, 1)}}<br/>
+      Sản lượng: {{sft_product + sft_product_per_level}} quả (10 {{name_farm_money}}/quả).<br/>
+      Phí nâng cấp: {{pay_sft_price|number_format}} {{name_farm_money}}
+    </div>
+    <form action="?act=star_fruit_tree&mod=upgrade" class="mt5" method="post">
+      <input type="hidden" name="token" value = "{{token}}"/>
+      <p style="text-align:center"><button type="submit" name="submit" value="Nâng cấp" class="btn btn-primary btn-block">Nâng cấp</button></p>
+    </form>
+			{% endif %}
+		{% else %}
+    <div class="textbox">Cây khế đã đạt cấp tối đa!</div>
+    	{% endif %}
+    	{% else %}
+    <div class="textbox">
+      Sản lượng: {{sft_product}}<br/>
+      Còn {{farm.timer(sft_timer, 2)}} mới có thể thu hoạch
+    </div>
+    {{user['sft_level'] < sft_max_level ? '<div class="textbox">Cây khế level càng cao phát triển càng nhanh. Khi khế đang phát triển mới có thể tiến hành nâng cấp!<br/><a href="/play/vip">Nâng cấp VIP</a> cũng tăng tốc độ sinh trưởng của khế</div>' : ''}}
+    	{% endif %}
+    {% else %}{#có thể thu hoạch#}
+        {% if get_post('submit') %}
+        {% set req = query_select_table(farm_warehouse,'harvest','WHERE `item_id` = "17" AND `user_id` = "'~user.id~'" LIMIT 1') %}
+        {% set count3 = get_row_count(farm_warehouse, {'item_id':'17','user_id':user.id,'operator':'='}) %}
+        {% if count3 > 0 %}
+    		{% set res = req|last %}
+    		{% do query_update_table(farm_warehouse,{'harvest':res['harvest'] + sft_product}, 'WHERE `user_id` = "'~user.id~'" AND `item_id` = "17" LIMIT 1') %}
+		{% else %}
+    		{% do insert_row_array_table(farm_warehouse, {'user_id':user.id,'item_id':17,'harvest':sft_product}) %}
+		{% endif %}
+    	{% do update_row_table('users', 'sft_time', 'now'|date('U'), 'id', user.id) %}
+    <div class="textbox">
+      Thu hoạch thành công! Bạn nhận {{sft_product}} quả khế vào kho!<br/>
+      <a href="?act=star_fruit_tree&mod=upgrade">Nâng cấp</a> cây khế để tăng sản lượng và giảm thời gian sinh trưởng!
+    </div>
+        {% else %}
+    <form action="?act=star_fruit_tree" method="post">
+      <input type="hidden" name="token" value = "{{token}}"/>
+      <center><button type="submit" name="submit" value="Thu hoạch" class="btn btn-primary btn-block">Thu hoạch</button></center>
+    </form>
+        {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{#=============================================================================#}
+
+{% block act_store %}
+{#mua hạt giống bằng farm_money#}
+<div class="gmenu"><a href="?act=store" style="font-weight:700">Cửa hàng</a> | <b>{{name_farm_money|capitalize}}: <span style="color:red">{{user[farm_money]|number_format}}</span></b></div>
+{% set max_count = 99 %}
+{% if id %}
+	{% set req_i = query_select_table(farm_item,'*','WHERE `type` = "1" AND `id` = "'~id~'" LIMIT 1') %}
+    {% if req_i %}
+    	{% set res_i = req_i|last %}
+    	{% if request_method()|lower == 'post' %}
+    		{% set buy = get_post('buy')|default(0) %}
+    		{% set pay = buy*res_i['price'] %}
+    		{% if buy <1 or buy > max_count %}
+    			{% set notice = 'Số lượng phảo từ 1 đến '~max_count~'!' %}
+    		{% elseif pay > user[farm_money] %}
+    			{% set notice = 'Bạn không đủ '~name_farm_money~' để mua!' %}
+    		{% endif %}
+    		{% if notice %}
+    <div class="remnu">{{notice}}</div>
+    		{% else %}
+    			{#update count#}
+    			{% set req2 = query_select_table(farm_warehouse,'`id`,`count`','WHERE `user_id` = "'~user.id~'" AND `item_id` = "'~id~'" AND `type` = "1" LIMIT 1') %}
+    			{% set res2 = req2|last %}
+    			{% if res2['count'] + buy > max_count %}
+    <div class="rmenu">Hiện bạn đang có {{res2['count']}} vật phẩm này. Bạn chỉ có thể mua thêm tối đa {{max_count - res2['count']}} vật phẩm!</div>
+    			{% else %}
+    				{% do update_row_array_table(farm_warehouse, {'count':res2['count'] + buy}, 'id', res2['id']) %}
+    				{#update money#}
+    				{% do update_row_table('users', farm_money, (user[farm_money] - pay|trim), 'id', user.id) %}
+    <div class="gmenu">Mua thành công! Bạn bị trừ <b>{{pay}} {{name_farm_money}}</b><br/><a href="?act=store">Mua tiếp</a></div>
+    			{% endif %}
+    		{% endif %}
+    	{% else %}
+    <div class="postprofile menu">
+      <div class="postprofileInner" style="margin-top:0;padding-top:0">
+        <div class="profileAvatar"><img src="https://dorew-site.github.io/assets/farm/plant/{{res_i['id']}}.png" width="38" height="38" alt="[item]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="?act=store&id={{res_i['id']}}" style="font-weight:700">{{res_i['name']}}</a> ({% if res_i['time'] < 3600 %}{{res_i['time'] // 60}} phút{% else %}{{res_i['time'] // 3600}} giờ{% endif %})</div>
+          <div style="color:#999">Giá: {{res_i['price']}} {{name_farm_money}} - Sản lượng: {{res_i['max']}}</div>
+        </div>
+      </div>
+      <div>
+        <form action="?act=store&id={{res_i['id']}}" method="post">
+          <p><input type="number" name="buy" pattern="([\d]{1,2})" required autocomplete="off" size="3" max="{{max_count}}" class="form-control"/></p>
+          <p><button type="submit" name="submit" value="Mua" class="btn btn-primary btn-block">Mua</button></p>
+        </form>
+      </div>
+    </div>
+    	{% endif %}
+    {% else %}
+    <div class="rmenu">Vật phẩm không tồn tại!</div>
+    {% endif %}
+{% else %}
+    {#danh sách giống cây#}
+	{% set total = get_row_count(farm_item, {'type':1, 'operator':'='}) %}
+	{% if total %}
+      {% for res_w in select_table_where_data(farm_item, 'type', 1) %}
+      	{% if res_w['id'] %}
+    <div class="postprofile menu">
+      <div class="postprofileInner" style="margin-top:0;padding-top:0">
+        <div class="profileAvatar"><img src="https://dorew-site.github.io/assets/farm/plant/{{res_w['id']}}.png" width="38" height="38" alt="[item]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="?act=store&id={{res_w['id']}}" style="font-weight:700">{{res_w['name']}}</a> ({% if res_w['time'] < 3600 %}{{res_w['time'] // 60}} phút{% else %}{{res_w['time'] // 3600}} giờ{% endif %})</div>
+          <div style="color:#999">Giá: {{res_w['price']}} {{name_farm_money}} - Sản lượng: {{res_w['max']}} - Đang có: {{query_select_table(farm_warehouse,'`id`,`count`','WHERE `user_id` = "'~user.id~'" AND `item_id` = "'~res_w['id']~'" AND `type` = "1" LIMIT 1')|last.count}}/{{max_count}}</div>
+        </div>
+      </div>
+    </div>
+      	{% endif %}
+      {% endfor %}
+	{% else %}
+      <div class="rmenu">Cửa hàng tạm thời đóng cửa!</div>
+	{% endif %}
+{% endif %} 
+{% endblock %}
+
+{#=============================================================================#}
+
+{% block act_warehouse %}
+{#bán vật phẩm trong kho được farm_money#}
+<div class="gmenu"><b>Nhà kho</b> | <b>{{name_farm_money|capitalize}}: <span style="color:red">{{user[farm_money]|number_format}}</span></b></div>
+    {#{% set w_column = '`'~farm_warehouse~'`.`item_id`, `'~farm_warehouse~'`.`count`, `'~farm_item~'`.`name`, `'~farm_item~'`.`cost`' %}
+    {% set w_sql = 'LEFT JOIN `'~farm_item~'` ON `'~farm_warehouse~'`.`item_id` = `'~farm_item~'`.`id` WHERE `'~farm_warehouse~'`.`user_id` = "'~user.id~'" AND `'~farm_warehouse~'`.`type` = "0" AND `count` > 0' %}#}
+    {% set w_column = '`'~farm_warehouse~'`.`item_id`, `'~farm_warehouse~'`.`harvest`, `'~farm_item~'`.`name`, `'~farm_item~'`.`cost`' %}
+    {% set w_sql = 'LEFT JOIN `'~farm_item~'` ON `'~farm_warehouse~'`.`item_id` = `'~farm_item~'`.`id` WHERE `'~farm_warehouse~'`.`user_id` = "'~user.id~'" AND `harvest` > 0' %}
+	{% set req_w = query_select_table(farm_warehouse,w_column,w_sql) %}
+    {#{{req_w|length}}<br/>{{w_column}}<br/>{{w_sql}}#}
+    {% if req_w %}
+    	{% if request_method()|lower == 'post' %}
+      		{% set sell = [] %}
+      		{% for k,v in get_post('sell','list')|last %}
+      			{#get_post(name_method,'list') => lấy danh sách các phần tử trong form method#}
+      			{% set sell = sell|merge([v]) %}
+      		{% endfor %}
+      		{% if sell %}
+      			{% set into_money = 0 %}
+      			{% set sell_id = [] %}
+      			{% for res_w in req_w %}
+      				{% if res_w['item_id'] in sell %}
+      					{% set sell_id = sell_id|merge([res_w['item_id']]) %}
+      					{% set into_money = into_money + res_w['cost'] * res_w['harvest'] %}
+      				{% endif %}
+      			{% endfor %}  
+      			{% if sell_id %}
+      				{% do query_update_table(farm_warehouse,{'harvest':0},'WHERE `item_id` IN ('~implode(', ', sell_id)~') AND `user_id` = "'~user.id~'"') %}
+      				{% do update_row_table('users', farm_money, (user[farm_money] + into_money), 'id', user.id) %}
+      <div class="menu">Bán thành công! Bạn nhận được {{into_money}} {{name_farm_money}}.</div>
+      			{% else %}
+      <div class="rmenu">Vật phẩm không tồn tại!</div>
+      			{% endif %}
+      		{% else %}
+      <div class="rmenu">Bạn chưa chọn vật phẩm cần bán!</div>
+      		{% endif %}
+    	{% else %} 
+<form action="?act=warehouse" method="post">
+  			{% for res_w in req_w %}
+  				{% set into_money = res_w['cost'] * res_w['harvest'] %}
+  <div class="postprofile menu">
+    <div class="postprofileInner" style="margin-top:0;padding-top:0">
+      <div class="profileAvatar"><img src="https://dorew-site.github.io/assets/farm/plant/{{res_w['item_id']}}.png" width="38" height="38" alt="[item]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><input name="sell[]" type="checkbox" value="{{res_w['item_id']}}"> <b>{{res_w['name']}}</b> ({{res_w['harvest']|number_format}})</div>
+        <div style="color:#999">Giá bán: {{into_money|number_format}} {{name_farm_money}}</div>
+      </div>
+    </div>
+  </div>
+  			{% endfor %}
+  <div class="menu w3-center"><button type="submit" class="btn btn-primary btn-block">Bán</button></div>
+</form>
+      
+    	{% endif %}
+    {% else %}
+<div class="rmenu">Chưa có gì trong kho</div>
+    {% endif %}
+{% endblock %}
+
+{#=============================================================================#}
+
+{% block act_kitchen %}
+{#ma dược và cường hóa#}
+{% set compound = ['farm','botmathuat','longvu','phale','tiaset','haoquang','thongthao'] %}{#hợp chất ma dược#}
+{% set compound_name = {'farm':'Điểm trồng trọt','botmathuat':'Bột ma thuật','longvu':'Lông vũ thiên thần','phale':'Pha lê thần bí','tiaset':'Tia sét thần kỳ','haoquang':'Hào quang','thongthao':'Huy hiệu thông thạo'} %}
+{% set liquid_name = {'farm':'Điểm trồng trọt','botmathuat':'Bột ma thuật','longvu':'Ma dược thiên thần','phale':'Ma dược thần bí','tiaset':'Ma dược địa ngục','haoquang':'Hào quang hắc ám','thongthao':'Ma dược thông thạo'} %}
+{#{% set liquid_name = [null, null,'Ma dược thiên thần','Ma dược thần bí','Ma dược địa ngục','Hào quang hắc ám','Ma dược thông thạo'] %}{#tên hợp chất dạng lỏng#}
+{% set max_master = 7 %}{#thông thạo tối đa#}
+{#Ôi không!!! Một trong các kẻ trồng trọt đã làm vỡ lọ thuỷ ngân khổng lồ trong phòng điều chế, và bột lưu huỳnh đã hết, hãy tìm và sử dụng trứng gà để ngăn cản độc tố từ thuỷ ngân càng sớm càng tốt.<br/>Một số ma dược có trong danh sách sau đây, sau khi điều chế, chúng vẫn sẽ ở trạng thái rắn, chỉ khi bạn có lọ thuốc thần, bạn mới có thể biến chúng từ rắn sang lỏng. Các ma dược khi ở dạng lỏng, bạn có thể uống chúng và nhận được trứng gà!#}
+{% set cp = get_get('compound') %}
+{% if cp != 'liquid' %}{% set cp = 'solid' %}{% endif %}
+{% set ingredient = compound %}
+{% for farm_crop in select_table_where_data(farm_item, 'type', 1) %}
+  {% if farm_crop['id'] >= 1 %}
+    {% set ingredient = ingredient|merge(['c'~farm_crop.id]) %}
+  {% endif %}
+{% endfor %}
+
+<div class="gmenu">
+  <b>Ma dược và cường hóa</b>
+</div>
+{% if id >= 1 %}{% set remedy = select_table_row_data(farm_compound,'id', id) %}{% endif %}
+{% if id >= 1 and id == remedy['id'] and remedy['type'] == cp|default('solid') %}
+    {% set data_ingredient = remedy %}
+    {% set remedy_name = compound_name %}
+    {% if remedy.type == 'liquid' %}
+      {% set remedy_name = liquid_name %}
+      {% set remedy_url = 'liquid/'~remedy.name %}
+    {% else %}
+      {% set remedy_url = remedy.name %}
+    {% endif %}
+     {% set list = [] %}
+      {% for rmd in ingredient %}
+        {% set count_rmd = data_ingredient[rmd] %}
+      	{% if count_rmd > 0 %}
+      	  {% set list = list|merge({(rmd):count_rmd}) %}
+      	{% endif %}
+      {% endfor %}
+    {% set list_ird %}{% spaceless %}
+      {% for rmd,count_rmd in list %}
+        {% if rmd in compound %}
+      	  {{count_rmd|raw}} {{compound_name[rmd]}}
+        {% else %}
+          {% set data_rmd = select_table_row_data(farm_item,'id',rmd|replace({'c':''})) %}
+      	  {{count_rmd|raw}} {{data_rmd['name']}}
+      	{% endif %}
+      	{% if loop.last == false %}, {% endif %}
+      {% endfor %}
+    {% endspaceless %}{% endset %}
+    {#=====XỬ LÝ DỮ LIỆU=====#}
+    {% if request_method()|lower == 'post' %}
+      {% set cp_sl = get_post('solid_liquid')|default(1) %}
+      <div class="rmenu">
+      {#===ĐIỀU CHẾ THẤT BẠI===#}
+      {% set lack_compound = 0 %}
+      {% for rmd,count_rmd in list %}
+        {% set count_rmd = cp_sl*count_rmd %}
+        {% if rmd in compound %}
+      	  {% set data_rmd = select_table_row_data('user_maduoc', 'nick', is_login()) %}
+          {% if my.farm < count_rmd %}
+          	- Thiếu {{count_rmd-my.farm}} {{compound_name[rmd]}}<br/>
+          	{% set lack_compound = lack_compound + 1 %}
+		  {% elseif data_rmd[rmd] < count_rmd and rmd != 'farm' %}
+          	- Thiếu {{count_rmd-data_rmd[rmd]}} {{compound_name[rmd]}}<br/>
+          	{% set lack_compound = lack_compound + 1 %}
+          {% endif %}
+        {% else %}
+          {% set warehouse_rmd = query_select_table(farm_warehouse,'*','WHERE `user_id` = "'~my.id~'" AND `item_id` = "'~rmd|replace({'c':''})~'"')|last %}
+          {% set farm_rmd = select_table_row_data(farm_item,'id',rmd|replace({'c':''})) %}
+      	  {% if warehouse_rmd['harvest'] < count_rmd %}
+          	- Thiếu {{count_rmd-warehouse_rmd['harvest']}} {{farm_rmd['name']}}<br/>
+          	{% set lack_compound = lack_compound + 1 %}
+          {% endif %}
+      	{% endif %}
+      {% endfor %}
+      {#===ĐIỀU CHẾ THÀNH CÔNG===#}
+      {% if lack_compound == 0 %}
+      	{% for rmd,count_rmd in list %}
+        	{% set count_rmd = cp_sl*count_rmd %}
+        	{% if rmd in compound %}
+      	  		{% set data_rmd = select_table_row_data('user_maduoc', 'nick', is_login()) %}
+          		{% if rmd == 'farm' %}
+					{% do update_row_table('users', 'farm', (my.farm-count_rmd|trim), 'nick', is_login()) %}
+		  		{% else %}
+					{% do update_row_table('user_maduoc', rmd, (my_compound[rmd]|trim-count_rmd), 'nick', is_login()) %}
+          		{% endif %}
+        	{% else %}
+          		{% set warehouse_rmd = query_select_table(farm_warehouse,'*','WHERE `user_id` = "'~my.id~'" AND `item_id` = "'~rmd|replace({'c':''})~'"')|last %}
+          		{% set farm_rmd = select_table_row_data(farm_item,'id',rmd|replace({'c':''})) %}
+				{% do query_update_table(farm_warehouse, {'harvest':warehouse_rmd['harvest']-count_rmd},'WHERE `user_id` = "'~my.id~'" AND `item_id` = "'~rmd|replace({'c':''})~'"') %}
+      		{% endif %}
+      	{% endfor %}
+        {% if cp == 'liquid' %}
+        	{% do update_row_table('user_maduoc', remedy.name~'_liquid', (my_compound[remedy.name~'_liquid']|trim+cp_sl), 'nick', is_login()) %}
+        {% else %}
+        	{% do update_row_table('user_maduoc', remedy.name, (my_compound[remedy.name]|trim+cp_sl), 'nick', is_login()) %}
+        {% endif %}
+        Điều chế thành công!
+      {% endif %}
+      {#=======END ĐIỀU CHẾ======#}
+      </div>
+    {% endif %}
+    {#===END XƯ LÝ DỮ LIỆU===#}
+    <div class="postprofile menu">
+      <div class="postprofileInner" style="margin-top:0;padding-top:0">
+        <div class="profileAvatar"><img src="https://dorew-site.github.io/assets/farm/compound/{{remedy_url}}.png" width="38" height="38" alt="[item]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><b>{{remedy_name[remedy.name]}}</b></div>
+          <div style="color:#999">Yêu cầu: {{list_ird}}</div>
+        </div>
+      </div>
+      <div>
+        <form method="post">
+          <p><input type="number" name="solid_liquid" pattern="([\d]{1,2})" required autocomplete="off" size="3" max="{{max_count}}" class="form-control"/></p>
+          <p><button type="submit" name="submit" value="Compound" class="btn btn-primary btn-block">Điều chế</button></p>
+        </form>
+      </div>
+    </div>
+{% else %}
+<div class="topmenu" style="text-align:center">
+  {% if cp == 'liquid' %}
+  <a href="?act=kitchen&compound=solid">Nguyên liệu</a> | <b>Ma dược</b>
+  {% else %}
+  <b>Nguyên liệu</b> | <a href="?act=kitchen&compound=liquid">Ma dược</a>
+  {% endif %}
+</div>
+  {% for remedy in query_select_table(farm_compound,'*','WHERE `type` = "'~cp~'"') %}
+    {% set data_ingredient = remedy %}
+    {% set remedy_name = compound_name %}
+    {% if remedy.type == 'liquid' %}
+      {% set remedy_name = liquid_name %}
+      {% set remedy_url = 'liquid/'~remedy.name %}
+    {% else %}
+      {% set remedy_url = remedy.name %}
+    {% endif %}
+    {% set list_ird %}{% spaceless %}
+     {% set list = [] %}
+      {% for rmd in ingredient %}
+        {% set count_rmd = data_ingredient[rmd] %}
+      	{% if count_rmd > 0 %}
+      	  {% set list = list|merge({(rmd):count_rmd}) %}
+      	{% endif %}
+      {% endfor %}
+      {% for rmd,count_rmd in list %}
+        {% if rmd in compound %}
+      	  {{count_rmd|raw}} {{compound_name[rmd]}}
+        {% else %}
+          {% set data_rmd = select_table_row_data(farm_item,'id',rmd|replace({'c':''})) %}
+      	  {{count_rmd|raw}} {{data_rmd['name']}}
+      	{% endif %}
+      	{% if loop.last == false %}, {% endif %}
+      {% endfor %}
+    {% endspaceless %}{% endset %}
+    {% set count_comp = my_compound[remedy.name]|default(0) %}
+  <div class="postprofile menu">
+    <div class="postprofileInner" style="margin-top:0;padding-top:0">
+      <div class="profileAvatar"><img src="https://dorew-site.github.io/assets/farm/compound/{{remedy_url}}.png" width="38" height="38" alt="[item]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="?act=kitchen{{cp == 'liquid' ? '&compound=liquid' : ''}}&id={{remedy.id}}" style="font-weight:700">{{remedy_name[remedy.name]}}</a></div>
+        <div style="color:#999">Yêu cầu: {{list_ird}}{% if count_comp > 1 %}<br/>Đang có: {{count_comp|number_format}}{% endif %}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

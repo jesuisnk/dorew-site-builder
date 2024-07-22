@@ -1,0 +1,109 @@
+{% set url = get_uri_segments() %}
+{% if url[0] == 'play_god-wealth' %}{{redirect('/play/god-wealth')}}{% endif %}
+{% set uri_god = '/play/god-wealth' %}
+{% use '_layout' %}
+{% use '_user_dragon' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{% set table_name = 'play_dragon' %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set system_bot_info = select_table_row_data('users', 'nick', system_bot) %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+
+<div class="mainblok">
+{#==========================================================================#}
+{% if url[2] == 'animal-racing' %}
+  {% set animal_name = ['Mèo Vằn','Chuột Tuyết','Tiểu Hồ','Bông Xù','Hắc Long','Tiểu Bảo','Hoả Long'] %}
+  <div class="phdr" style="font-weight:700">Đua thú</div>
+  {% set min = 100 %}
+  {% set max = 2000 %}
+  {% set do_bet = get_post('do')|trim %}
+  {% set do_reward = do_bet*10 %}
+  {% set animal_bet = get_post('animal') %}
+  {% if request_method()|lower == 'post' and do_bet in min..max and animal_bet in 1..7 %}
+    {% do update_row_array_table('users', 'do', (user['do']|trim-do_bet), user.nick) %}
+    {% set animal_result = random(1..15) %}
+  	{% if animal_bet == animal_result %}
+  <div class="gmenu">
+      {% do update_row_array_table('users', 'do', (user['do']|trim+do_bet+do_reward), user.nick) %}
+      {% do update_row_array_table('users', 'do', (system_bot_info['do']|trim-do_bet), system_bot) %}
+    Chúc mừng! Thú <b>{{animal_name[animal_bet-1]}}</b> mà bạn chọn đã giành chiến thắng trong lượt đua này. Bạn nhận được <b>{{do_reward|number_format}} Tiềm lực.</b>
+    <br/><a href="{{uri_god}}/animal-racing" class="btn btn-sm btn-warning">Chơi tiếp</a>
+  </div>
+  	{% else %}
+      {% do update_row_array_table('users', 'do', (system_bot_info['do']|trim+do_bet), system_bot) %}
+  <div class="rmenu">
+    Xin chia buồn! Thú <b>{{animal_name[animal_bet-1]}}</b> mà bạn chọn đã thua trong lượt đua này!
+    <br/><a href="{{uri_god}}/animal-racing" class="btn btn-sm btn-primary">Chơi lại</a>
+  </div>
+  	{% endif %}
+  <div class="ani-wall"></div>
+  <div class="ani-road">
+  	{% for i in 1..7 %}
+      {% if animal_result == animal_bet %}
+    	{% if i == animal_bet %}
+    <marquee behavior="alternate" direction="right" scrollamount="10" loop="1"><div class="ani ani{{i}}"></div></marquee>
+    	{% else %}
+    <marquee behavior="alternate" direction="right" scrollamount="{{random(1..9)}}" loop="1"><div class="ani ani{{i}}"></div></marquee>
+    	{% endif %}
+      {% else %}
+    	{% if i == animal_bet %}
+    <marquee behavior="alternate" direction="right" scrollamount="2" loop="1"><div class="ani ani{{i}}"></div></marquee>
+    	{% else %}
+    <marquee behavior="alternate" direction="right" scrollamount="{{random(1..9)}}" loop="1"><div class="ani ani{{i}}"></div></marquee>
+    	{% endif %}
+      {% endif %}
+  	{% endfor %}
+  </div>
+  <div class="ani-wall"></div>
+  {% else %}
+  	{% if do_bet not in ['',null] and do_bet not in min..max  %}
+  <div class="rmenu">Điểm cược không hợp lệ!</div>
+    {% elseif animal_bet not in ['',null] and animal_bet not in 1..7  %}
+  <div class="rmenu">Thú được chọn không hợp lệ!</div>
+  	{% endif %}
+  {#=====ĐẶT CƯỢC=====#}
+  {% for animal in animal_name %}
+  <div class="d-menu ani-area">
+    <div class="ani ani{{loop.index}}"></div>
+    <div id="ani{{loop.index}}-name"></div>
+  </div>
+  {% endfor %}
+</div>
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700">Đặt cược ({{min}} - {{max}})</div>
+  <div class="menu" style="text-align:center">
+    <div style="font-weight:700">Đặt 1 ăn 10 - Một bước lên tiên</div>
+    <form action="" method="post">
+      <select name="animal" class="form-control">
+        {% for animal in animal_name %}
+        <option value="{{loop.index}}">{{animal}}</option>
+        {% endfor %}
+      </select>
+      <table style="width:100%">
+        <tr>
+          <td style="width:{{'Tiềm lực'|length*10}}px;text-align:left">Tiềm lực: </td>
+          <td style="text-align:left"><input type="numbder" name="do" min="{{min}}" max="{{max}}" class="form-control" value="{{min}}"/></td></tr>
+      </table>
+      <p style="text-align:center">
+        <button type="submit" class="btn btn-primary btn-block" value="agree">Đua thôi</button>
+      </p>
+    </form>
+  </div>
+  {#===END ĐẶT CƯỢC===#}
+  {% endif %}
+{#==========================================================================#}
+{% elseif url[2] == 'dice' %}
+  <div class="phdr" style="font-weight:700">Tài xỉu</div>
+{#==========================================================================#}
+{% else %}
+  <div class="phdr" style="font-weight:700">Trò chơi nhân phẩm</div>
+  <div class="list1"><a href="{{uri_god}}/animal-racing">Đua thú</a></div>
+  <div class="list1"><a href="{{uri_god}}/frog">Ếch săn mồi</a></div>
+  {#<div class="list1"><a href="{{uri_god}}/dice">Tài xỉu</a></div>
+  <div class="list1"><a href="{{uri_god}}/ott">Oẳn tù tì lột đồ</a></div>#}
+{% endif %}
+{#==========================================================================#}
+</div>

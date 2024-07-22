@@ -1,0 +1,73 @@
+{% use '_layout' %}
+{% set title = 'Máy kiểm tra độ khờ' %}
+{{block('head')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+{% if is_login() %}
+<div class="phdr"><i class="fa fa-calculator" aria-hidden="true"></i> Máy kiểm tra độ khờ</div>
+
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set xuuser = user.xu %}
+
+{% if xuuser < 5000 %}
+    <script>
+      window.location.href = '/index'
+    </script>
+{% endif %}
+
+
+
+
+{% if request_method()|lower == "post" %}
+	{% set muaf = get_post('muaf') %}
+	{% set newxu = xuuser-5000 %}
+	{% set mad = random(1, 5) %} 
+    {% if mad > 4 %}
+
+    {% else %}
+      {% do update_row_table('users', 'xu', newxu, 'nick', is_login()) %}
+      {% set array_row = {'name':'sei','time':'now'|date('U'),'comment':'@'~is_login()~' [img]https://ipfs.filebase.io/ipfs/bafybeiducvrlshvfakxmrs65eoche5p3vi4vnygtjas547yzfzgzqb2wrq?filename=ngu.gif[/img]\r\n[url=/maykiemtradokho]Click[/url]'} %}
+      {% do insert_row_array_table('chat', array_row) %}
+	{% endif %}
+
+    <div class="gmenu">Kiểm tra thành công</div>
+    <script>
+      window.location.href = '/index'
+    </script>
+{% endif %}
+
+
+<div class="menu" align="center"><img src="https://i.imgur.com/VKqzQ3i.jpg" width="30%"/></div>
+
+<div class="menu">Để kiểm tra độ khờ thì bạn cần tốn <b>5000 xu</b></div>
+
+
+<div class="menu">
+  <p>
+    Bạn có muốn kiểm tra không?
+  </p>
+  <p>
+    Hiện tại bạn có <b>{{xuuser}}</b>, sau khi kiểm tra bạn còn <b>{{xuuser-5000}} xu</b>.
+  </p>
+  <form action="" method="post">
+    <div style="text-align:center">
+      <input type="hidden" name="muaf" value="1">
+      <button type="submit" class="button"><i class="fa fa-check-square-o" aria-hidden="true"></i> Kiểm tra</button>
+    </div>
+  </form>
+</div>
+
+
+
+
+
+
+
+
+
+
+{% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{{block('end')}}

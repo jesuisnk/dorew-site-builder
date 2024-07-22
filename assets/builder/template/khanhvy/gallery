@@ -1,0 +1,327 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging,size %}
+
+{% set url = get_uri_segments() %}
+{% set table_name = 'img' %}
+{#table: img - column: id,time,url,size,author#}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+{% set my = select_table_row_data('users', 'nick', is_login()) %}
+{% if get_get('id') and url[1] != 'user' %}
+	{% set dimg = select_table_row_data(table_name, 'id', get_get('id')) %}
+{% elseif url[1] == 'user' and rwurl(url[2]) not in ['',null] %}
+	{% set user = select_table_row_data('users', 'nick', rwurl(url[2])) %}
+{% endif %}
+
+{% macro breadcrumb(tit, uri, text) %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/gallery">{{tit}}</a></li>
+  {% if uri and text %}
+  <li><a href="/gallery/{{uri}}">{{text}}</a></li>
+  {% endif %}
+</ul>
+<link rel="stylesheet" href="/gallery.css?t={{'now'|date('U')}}" />
+<div class="w3-container" style="padding:4px;padding-bottom:0">
+  <div class="w3-right-align">
+    <a href="/gallery/upload" class="btn btn-success btn-sm"><i class="fa fa-upload" aria-hidden="true"></i> Tải lên</a>
+    <a href="/gallery/user/{{is_login()}}" class="btn btn-primary btn-sm margin-left">Album <span class="badge"><b class="red">{{get_row_count('img', {'author':is_login(), 'operator':'='})}}</b></span></a>
+  </div>
+</div>
+{% endmacro %}
+
+{% if url[1] == 'upload' %}
+{#=============================================================================#}
+{#tải lên hình ảnh#}
+{% set title = 'Kho ảnh - Tải lên' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho ảnh','upload','Tải lên')}}
+{% set w3_main4px_content %}
+  {% if request_method()|lower == "post" %}
+    {% if get_post('msg') != null and get_post('fsize')!=null %}
+	  {% if get_get('status')|lower not in ['public','private'] %}
+		{% set status = 'public' %}
+	  {% else %}
+	  	{% set status = get_get('status')|lower %}
+	  {% endif %}
+      {% set array_row = {"time":"now"|date('U'),"url":get_post('msg'),"size":get_post('fsize'),"author":is_login(),'status':status} %}
+      {% do insert_row_array_table(table_name, array_row) %}
+      <div class="gmenu">Tải lên thành công</div>
+      {{redirect('/gallery/user/'~dimg.author)}}
+    {% endif %}
+  {% endif %}
+
+<div class="menu" style="text-align:center">
+  <form id="uimg" method="post">
+    <p style="text-align:left">Ai có thể xem tấm ảnh này của bạn?</p>
+    <p><select name="status" class="form-control"><option value="public">Mọi người</option><option value="private">Chỉ mình tôi</option></select></p>
+    <textarea  type="text" id="postText"  style="display:none;" name="msg" rows="1"></textarea>
+    <p><a class="btn btn-primary btn-block"id="upload">Chọn Ảnh <i class="fa fa-upload" aria-hidden="true"></i></a></p>
+    <input id="fsize" name="fsize" type="hidden" value="">
+    <input style="display:none" type="file" id="f" accept="image/*"  data-max-size="5120"/>
+  </form>
+</div>
+<script>
+function imgur(f, ob) {
+	var files = document.querySelector(f);
+	files.onchange = function () {
+		var file = this.files[0];
+		if (file && file.type.match(/image.*/)) {
+			var fd = new FormData();
+			fd.append("image", file);
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://api.imgur.com/3/image.json");
+			xhr.upload.onprogress = function (e) {
+				if (e.lengthComputable) {
+					var percent = Math.floor((e.loaded / e.total) * 100) + '%';
+					ob.loading(percent)
+				}
+			};
+			xhr.onload = function () {
+				var imgs;
+				var res = JSON.parse(xhr.responseText);
+				if (res.status === 200 && res.success === !0) {
+					var data = res.data;
+					ob.loaded(data.link, data.type, data.size, data.datetime)
+				} else {
+					window.alert('Lỗi: tải lên thất bại')
+				}
+			}
+			xhr.setRequestHeader('Authorization', 'Client-ID 71ae7b89253621e');
+			xhr.send(fd)
+		} else {
+			window.alert('Chỉ cho phép chọn ảnh')
+		}
+	}
+}
+
+document.querySelector("#upload").onclick = function () {
+	document.querySelector("#f").click();
+}
+imgur("#f", {
+	loading: function (load) {
+		document.querySelector("#upload").innerHTML = '<i class="fa fa-spin fa-spinner" aria-hidden="true"></i> ' + load
+	},
+	loaded: function (link, type, size, time) {
+		var input = $("textarea").val();
+		$("textarea").val(link);
+        $('#fsize').val(size);
+		document.getElementById("uimg").submit();
+	}
+})
+</script>  
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'delete' and dimg.id and is_login() == dimg.author or url[1] == 'delete' and dimg.id and my.level >= '120' %}
+{#=============================================================================#}
+{#xoá ảnh#}
+{% set title = 'Xoá ảnh' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho ảnh','delete','Xoá ảnh')}}
+{% set w3_main4px_content %}
+	{% if request_method()|lower == 'post' %}
+		{% do delete_row_table(table_name, 'id', dimg.id) %}
+		{{redirect('/gallery/user/'~dimg.author)}}
+	{% endif %}
+<div class="mainblok">
+  <div class="title w3-col">
+    <div class="s6">Kích thước: {{size(dimg.size)}}</div>
+  </div>
+  <div class="postprofile">
+    <div class="postprofileInner" style="margin-top:0;padding-top:0">
+      <div class="profileAvatar"><img src="{{getAvtUser(dimg.author)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser imgAvt-{{dimg.author}}" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="/user/{{dimg.author}}">{{maunick(dimg.author)}}</a></div>
+        <div style="font-size:15px;color:#999"><i class="fa fa-clock-o"></i> {{ago(dimg.time)}}</div>
+      </div>
+    </div>
+  </div>
+  <div class="menu" style="text-align:center">
+    <a href="/gallery/view?id={{dimg.id}}"><img class="img_to imgShow" src="{{dimg.url|replace({'.jpg': 'b.jpg', '.png': 'b.png','.gif': 'b.gif'})}}" alt="Hình ảnh upload"></a>
+    <br/>Bạn chắc chắn muốn xoá tấm ảnh này chứ?
+    <form method ="post">
+      <button type="submit" class="btn btn-primary" value="agree">Xác nhận</button>
+    </form>
+  </div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'view' and dimg.id %}
+{#=============================================================================#}
+{#show hình ảnh#}
+{% set title = 'Xem ảnh' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho ảnh','view','Thông tin')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="postprofile">
+    <div class="postprofileInner" style="margin-top:0;padding-top:0">
+      <div class="profileAvatar"><img src="{{getAvtUser(dimg.author)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser imgAvt-{{dimg.author}}" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="/user/{{dimg.author}}">{{maunick(dimg.author)}}</a>{% if is_login() == dimg.author or my.level >= '120' %} | <a href="/gallery/delete?id={{dimg.id}}">Xoá ảnh</a>{% endif %}</div>
+        <div style="font-size:15px;color:#999"><i class="fa fa-clock-o"></i> {{ago(dimg.time)}}</div>
+      </div>
+    </div>
+  </div>
+  <div class="d-menu" style="text-align:center">
+    <img class="imgShow" style="padding:2px;border:1px solid #CECECE;" src="{{dimg.url}}" alt="hình ảnh">
+  </div>
+  <div class="img_pre" style="text-align:center;width:100%">
+  	<a href="{{dimg.url}}"><b><font color=#ffffff><i class="fa fa-cloud-download" aria-hidden="true"></i> Download ảnh ({{size(dimg.size)}})</font></b></a>
+  </div>
+</div>
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-share-alt-square" aria-hidden="true"></i> Chia sẻ ảnh</div>
+  <div class="menu">
+    <table style="border:none;">
+      <tr>
+        <td>Link</td>
+        <td><input type="text" value="{{dimg.url}}" class="form-control"></td>
+      </tr>
+      <tr>
+        <td>BBCode</td>
+        <td><input type="text" value="[img]{{dimg.url}}[/img]" class="form-control"></td>
+      </tr>
+      <tr>
+        <td>Markdown</td>
+        <td><input type="text" value="![]({{dimg.url}})" class="form-control"></td>
+      </tr>
+    </table>
+  </div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'user' and user.id %}
+{#=============================================================================#}
+{#kho ảnh của user#}
+{% set title = 'Kho ảnh '~user.name %}
+{{block('head')}}
+{{_self.breadcrumb('Kho ảnh','user',user.name)}}
+{% set w3_main4px_content %}
+	{% if user.nick == is_login() %}
+	  {% set total = get_row_count(table_name, {'author':user.nick, 'operator':'='}) %}
+	{% else %}
+	  {% set total = get_row_count(table_name, {'author':user.nick,'status':'public', 'operator':'='}) %}
+	{% endif %}
+    {% set per = '24' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+	{% set p = get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    {% if total == '0' %}
+      <div class="list1">Chưa có hình ảnh nào.</div>
+    {% else %}
+      {% if user.nick == is_login() %}
+        {% set data = query_select_table(table_name,'*','WHERE `author` = "'~user.nick~'" ORDER BY time DESC LIMIT '~st~','~per) %}
+      {% else %}
+        {% set data = query_select_table(table_name,'*','WHERE `author` = "'~user.nick~'" AND `status` = "public" ORDER BY time DESC LIMIT '~st~','~per) %}
+      {% endif %}
+  <div class="gallery-show-1">
+      <div class="menu" style="text-align:center">
+        <ul class="category">
+        {% for d_img in data %}
+          {% if d_img.id %}
+              <li class="listcat">
+                <a href="/gallery/view?id={{d_img.id}}"><img class="img_to" src="{{ d_img.url|replace({'.jpg': 'b.jpg', '.png': 'b.png','.gif': 'b.gif'})}}" alt="Hình ảnh upload"></a>
+               </li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      </div>
+  </div>
+  <div class="gallery-show-2 gallery-row">
+    {% for d_img in data %}
+    {% if d_img.id %}
+    	{% set uploader = select_table_row_data('users','nick',d_img.author) %}
+    <div class="min768 max767 pe-2 ps-2">
+      <a href="/gallery/view?id={{d_img.id}}">
+      <div class="gallery-card gallery-background" style="background-image:url({{d_img.url|replace({'.jpg': 'b.jpg', '.png': 'b.png','.gif': 'b.gif'})}});">
+        <div class="gallery-card-body gallery-info">
+          <figure class="gallery-info-avatar gallery-info-author">
+            <img src="{{getAvtUser(uploader.nick)}}" alt="avatar" class="gallery-info-author-avatar imgAvt-{{uploader.nick}}">
+          </figure>
+          <div class="clearfix"></div>
+          <h4 class="gallery-info-author-name">{{uploader.name}}</h4>
+        </div>
+      </div>
+      </a>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {{paging('?page=',p,page_max)|replace({'/=':'/','/?':'?'})|raw}}
+    {% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% else %}
+{#=============================================================================#}
+{#kho ảnh chung#}
+{% set title = 'Kho ảnh' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho ảnh')}}
+{% set w3_main4px_content %}
+	{% set total = get_row_count(table_name,{'status':'public','operator':'='}) %}
+    {% set per = '24' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+	{% set p = get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    {% if total == '0' %}
+      <div class="list1">Chưa có hình ảnh nào.</div>
+    {% else %}
+      {% set data = query_select_table(table_name,'*','WHERE `status` = "public" ORDER BY time DESC LIMIT '~st~','~per) %}
+  <div class="gallery-show-1">
+      <div class="menu" style="text-align:center">
+        <ul class="category">
+        {% for d_img in data %}
+          {% if d_img.id %}
+              <li class="listcat">
+                <a href="/gallery/view?id={{d_img.id}}"><img class="img_to" src="{{ d_img.url|replace({'.jpg': 'b.jpg', '.png': 'b.png','.gif': 'b.gif'})}}" alt="Hình ảnh upload"></a>
+               </li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      </div>
+  </div>
+  <div class="gallery-show-2 gallery-row">
+    {% for d_img in data %}
+    {% if d_img.id %}
+    	{% set uploader = select_table_row_data('users','nick',d_img.author) %}
+    <div class="min768 max767 pe-2 ps-2">
+      <a href="/gallery/view?id={{d_img.id}}">
+      <div class="gallery-card gallery-background" loading="lazy" style="background-image:url({{d_img.url|replace({'.jpg': 'b.jpg', '.png': 'b.png','.gif': 'b.gif'})}});">
+        <div class="gallery-card-body gallery-info">
+          <figure class="gallery-info-avatar gallery-info-author">
+            <img loading="lazy" src="{{getAvtUser(uploader.nick)}}" alt="avatar" class="gallery-info-author-avatar imgAvt-{{uploader.nick}}">
+          </figure>
+          <div class="clearfix"></div>
+          <h4 class="gallery-info-author-name">{{uploader.name}}</h4>
+        </div>
+      </div>
+      </a>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {{paging('?page=',p,page_max)|replace({'/=':'/','/?':'?'})|raw}}
+    {% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% endif %}
+
+{{block('end')}}

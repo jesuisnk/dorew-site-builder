@@ -1,0 +1,398 @@
+{% set url = get_uri_segments() %}
+{% if url[1] == 'item.png' %}
+{{img_farm()}}
+{% else %}
+{% if url[0] == 'play_farm' %}{{redirect('/play/farm')}}{% endif %}
+{% use '_user_farm' %}
+{% use '_layout' %}
+{% use '_blog' %}
+{% use '_mail' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set my = select_table_row_data('users', 'nick', is_login()) %}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+{% set act,mod,id = get_get('act'),get_get('mod'),get_get('id') %}
+{% set farm_money,name_farm_money = 'do','Tiềm lực' %}{#tiền nông trại#}
+{% set forum_money,name_forum_money = 'do','Tiềm lực' %}{#đồng tiền chung#}
+{% set title = 'Nông trại' %}
+{#===THÔNG TIN ĐẤT ĐAI===#}
+{% set farm_item = 'user_farm_crops' %}
+{% set farm_area = 'user_farm_area' %}
+{% set farm_warehouse = 'user_farm_warehouse' %}
+{% set farm_compound = 'user_farm_compound' %}
+{# giá đất tính bằng farm_money #}
+{% set price = [10800, 14700, 19200, 24300, 30000, 36300, 43200, 50700, 58800, 67500, 76800, 86700, 97200, 108300, 120000, 132300, 145200, 158700, 172800, 187500, 202800, 212300, 235200, 252300, 270000, 288300, 307200, 326700, 364800, 367500, 388800, 410700, 433200, 456300, 480000, 504300, 529200, 554700, 580800, 607500, 634800, 662700] %}
+{#777600, 912600, 960000, 1008600, 1058400, 1109400#}
+{% set exp = [10, 20, 40, 80, 140, 245, 429, 643, 965, 1302, 1302, 1758, 2373, 3086, 3857, 4725, 6662, 7661, 8695, 9782, 11005, 12381, 13928, 15669, 17628, 19832, 22311, 25099, 28237, 32049, 36375, 41286, 46860, 53186, 60366, 68515, 77765, 88263, 100178, 117710, 138309, 162513, 190953, 224369, 263634, 309770, 363980, 427676, 502519, 585435, 682032, 794567, 925671, 1078406, 1256343, 1463640, 1705140, 1986489, 2314259, 2672969, 3087280, 3565808, 4118508, 4756877, 5494193, 6345793, 7329390, 8465446, 9777590, 12710867, 16524127, 21481365, 27925775, 37699796, 50894725, 68707878, 92755636, 125220108, 169047146] %}
+{% set vip_exp = [0, 60, 300, 600, 1000, 1500, 1800, 2100, 2500] %}
+{% set vip_max_plots = [0, 1, 3, 5, 8, 12, 16, 20, 24] %}
+{% set max_vip_level = vip_exp|length-1 %}
+{% set vip_level = 0 %}
+{% for i in 0..max_vip_level %}
+	{% if user['vip_exp']|default(0) >= vip_exp[i] %}
+		{% set vip_level = i %}
+	{% endif %}
+{% endfor %}
+{% set max_plot = 24 + vip_max_plots[vip_level] %}
+{#==khế==#}
+{% set sft_max_level = 13 %}
+{% set sft_time = 28800 %}{#8 giờ#}
+{#==vip user==#}
+{% set sft_time_vip = [100, 95, 90, 85, 80, 75] %}
+{% set sft_time_per_level = 600 %}
+{#==Real sft time==#}
+{% set sft_time = sft_time * sft_time_vip[vip_level]|default(0) / 100 - (user['sft_level']|default(0) - 1) * sft_time_per_level %}
+{#==minimun stf time==#}
+{% if sft_time < 7200 %}{% set sft_time = 7200 %}{% endif %}
+{% set sft_timer = user['sft_time']|default(0) + sft_time >= 'now'|date('U') ? user['sft_time']|default(0) + sft_time - 'now'|date('U') : 0 %}
+{% set count = get_row_count(farm_area, {'user_id':user.id, 'operator':'='})|default(0) %}
+{% set mods = ['buy_plot','star_fruit_tree','store','warehouse','kitchen'] %}
+{#=END THÔNG TIN ĐẤT ĐAI=#}
+{% set token = random(5000) %}
+{% set my_compound = select_table_row_data('user_maduoc','nick',is_login()) %}
+{% if count > 0 %}{#nếu đã có đất#}
+{{block('head')}}
+<link rel="stylesheet" href="/farm.css?t={{'now'|date('U')}}"/>
+<style>
+  .farm_bg{height:141px;background-image:{% if 'now'|date('m') in 90..120 %}url(/farm-winter.gif),url(/farm-winter_bg.jpg){% else %}url(/farm{% if 'now'|date('H','Asia/Ho_Chi_Minh') in 0..5 or 'now'|date('H','Asia/Ho_Chi_Minh') in 18..23 %}_dark{% endif %}_bg.png?1){% endif %};background-repeat:repeat-x}
+  {#{% if 'now'|date('m') in 9..12 %}.farm_grass{background-image:url(/grass-winter.jpg);background-repeat:repeat}{% endif %}#}
+</style>
+{% set w3_twothird_content %}
+<div class="mainblok">
+  <div class="phdr"><a href="/play/farm"><i class="fa fa-leaf" aria-hidden="true"></i> Nông trại</a></div>
+  {% if act in mods %}
+  	{{block('act_'~act)}}
+  <div class="menu">« <a href="/play/farm">[ <b>Quay lại vườn</b> ]</a></div>
+  {% else %}
+  	{% set column = "`user_farm_area`.*,`user_farm_crops`.`name`,`user_farm_crops`.`max`" %}
+  	{% set req = query_select_table(farm_area,column,'LEFT JOIN `'~farm_item~'` ON `'~farm_area~'`.`item_id` = `'~farm_item~'`.`id` WHERE `user_id` = "'~user.id~'"') %}
+  {#=======XỬ LÝ YÊU CẦU=======#}
+  {% if request_method()|lower == 'post' %}
+  	{#xác định area là một mảng - selected plots#}
+  	{% set area = [] %}
+  	{% for k,v in get_post('area','list')|first %}{% set area = area|merge([v]) %}{% endfor %}
+  	{% if not area %}
+  <div class="rmenu">Chưa chọn ô đất</div>
+  	{% endif %}
+  	{#Check user plots#}
+	{% set planted = false %}{#Check if at least one area planted#}
+	{% set sel_id,can_water,can_harvest = [],[],[] %}{#Check select plots,watering#}
+	{% for res in req %}
+  		{% if res['id'] in area %}
+  			{% set sel_id = sel_id|merge([res['id']]) %}
+  			{% if res['item_id'] %}
+  				{% if res['end_time'] != 0 %}{% set planted = true %}{% endif %}
+  				{% if 'now'|date('U') < res['end_time'] %}
+                	{% set can_water = can_water|merge([res['id']]) %}
+                {% else %}
+                	{% set can_harvest = can_harvest|merge([res['id']]) %}
+                {% endif %}
+  			{% endif %}
+  		{% endif %}
+  	{% endfor %}{#end for lấy dữ liệu từ req#}
+    {% if not sel_id %}
+	<div class="rmenu">Dữ liệu không đúng!</div>
+    {% else %}
+  		{% set action = get_post('action') %}{#Check action#}
+  		{% if action == 'plant' %}{#gieo hạt#}
+  			{% set tree = get_post('tree')|abs %}
+  			{% if planted %}
+                {% set notice = 'Ô đất bạn chọn đang có cây trồng!' %}
+  			{% elseif not tree %}
+  				{% set notice = 'Dữ liệu không đúng!' %}
+ 	 		{% endif %}
+  			{% if notice %}
+  <div class="rmenu">{{notice}}</div>
+  			{% else %}
+  				{% set req2_column = '`'~farm_warehouse~'`.`id`, `'~farm_warehouse~'`.`count`, `'~farm_item~'`.`time`' %}
+  				{% set req2_sql = 'LEFT JOIN `'~farm_item~'` ON `'~farm_item~'`.`id` = `'~farm_warehouse~'`.`item_id` WHERE `'~farm_warehouse~'`.`item_id` = "'~tree~'" AND `'~farm_warehouse~'`.`user_id` = "'~user.id~'" AND `'~farm_warehouse~'`.`type` = "1" AND `'~farm_warehouse~'`.`count` > 0 LIMIT 1' %}
+  				{% set req2 = query_select_table(farm_warehouse,req2_column,req2_sql) %}
+  				{% if not req2 %}
+  <div class="rmenu">Hạt giống bạn chọn chưa có!</div>
+  				{% else %}
+  					{% set res2 = req2|last %}
+  					{% set plant = min(res2['count'], sel_id|length) %}
+  					{% do update_row_table(farm_warehouse, 'count', (res2['count'] - plant), 'id', res2['id']) %}
+  					{% for sel in sel_id %}
+  						{% if plant > 0 %}
+  							{% do query_update_table(farm_area,{'item_id':tree,'time':'now'|date('U'),'end_time':'now'|date('U')+res2['time'],'water_time':'now'|date('U'),'ns':100},'WHERE `id` = "'~sel~'"') %}
+  							{% set plant = plant - 1 %}
+  						{% endif %}
+  						{{redirect('/'~url|join('/'))}}
+  					{% endfor %}
+  				{% endif %}
+  			{% endif %}
+  		{% elseif action == 'watering' %}{#tưới nước#}
+  			{% if can_water %}
+  				{% for wid in can_water %}
+  					{% set rid = query_select_table(farm_area,'*','WHERE `id` = "'~wid~'"')|last %}
+  					{% if 'now'|date('U') < rid['end_time'] %}
+  						{% do query_update_table(farm_area,{'water_time':'now'|date('U'),'ns':100},'WHERE `id` = "'~wid~'"') %}
+                    {% endif %}
+  				{% endfor %}
+  			{% endif %}
+  			{{redirect('/'~url|join('/'))}}
+  		{% elseif action == 'harvest' %}{#thu hoạch#}
+    		{% if can_harvest %}
+  				{% for wid in can_harvest %}
+  					{% set rid = query_select_table(farm_area,'*','WHERE `id` = "'~wid~' LIMIT 1"')|last %}
+  					{% if 'now'|date('U') >= rid['end_time'] %}
+  						{% set dpa = query_select_table(farm_item,'*','WHERE `id` = "'~rid.item_id~' LIMIT 1"')|last %}
+  						{% set dpw = select_table(farm_warehouse, '*', {'item_id':rid.item_id,'user_id':user.id})|last %}
+  						{% set ns_current = _self.ns(rid['ns'], rid['time'], rid['end_time'], rid['water_time'])|trim %}
+  						{% set agricultural_output = rounding('ceil',(dpa['max']*ns_current/100)) %}
+  						{#thu vào kho#}
+  						{% do query_update_table(farm_warehouse, {'harvest':dpw['harvest'] + agricultural_output}, "WHERE `item_id` = '"~rid.item_id~"' AND `user_id` = '"~user.id~"'") %}
+  						{#{% set into_money = dpa['max']*agricultural_output %}#}
+  						{#cập nhật điểm trồng trọt#}
+  						{% do update_row_array_table('users', {'farm':(user.farm + agricultural_output)}, 'nick', is_login()) %}
+  						{#lưu dữ liệu cho ô đất#}
+  						{% do update_row_array_table(farm_area, {'item_id':0,'time':0,'end_time':0,'water_time':0}, 'id', wid) %}
+                    {% endif %}
+  				{% endfor %}
+            {% endif %}
+  			{{redirect('/'~url|join('/'))}}
+  	{#{% else %}{{redirect('/'~url|join('/'))}}#}{% endif %}
+  	{% endif %}{#end sel_id#}
+  {% endif %}{#end request method#}
+  {#=====END XỬ LÝ YÊU CẦU=====#}
+  {% set count2 = query_select_table(farm_warehouse,'COUNT(*)','WHERE `user_id` = "'~user.id~'" AND `type` = "1" AND `count` > 0') %}
+  <div id="farm" class="farm_grass">
+    <div class="farm_bg"><marquee behavior="scroll" direction="left" scrollamount="1" class="cloud_1"><img src="/cloud_1.png"></marquee><marquee behavior="scroll" direction="left" scrollamount="2" class="cloud_2"><img src="/cloud_2.png"></marquee></div>
+    <div class="farm_body"><div class="construction"><a href="?act=store" class="to_store"></a><a href="?act=kitchen" class="to_kitchen"></a><a href="?act=warehouse" class="to_warehouse"></a><a href="?act=star_fruit_tree" class="to_star_fruit_tree{{sft_timer ? '' : ' star_fruit_tree_1'}}"><span class="timer" id="timer" data-timer="{{sft_timer}}">{{sft_timer ? _self.timer(sft_timer) : 'Đã chín!'}}</span></a></div>
+      <div class="farm_divide"></div>
+    </div>
+    <form method="post">
+      <div class="farm">
+      <div class="plant_area">
+        {% for res in req %}
+          	{% if id and res['id'] == id %}
+          		{% set data = res %}
+          	{% endif %}
+        <label class="plot" style="{#margin-top:-50px#}margin-top:-35px">
+          <a href="?act=farm&id={{res['id']}}" style="background:url(/play_farm/item.png?{{_self.status(res['item_id'],res['time'],res['end_time'],res['water_time'])}});height:55px;width:55px">
+            {#<img src="/play_farm/item.png?{{status(res['item_id'],res['time'],res['end_time'],res['water_time'])}}"/>#} 
+          </a><input type="checkbox" name="area[]" value="{{res['id']}}"{{id == res['id'] ? 'checked ':''}}>
+        </label> 
+        {% endfor %}
+      <div style="height:20px"></div>
+    </div>
+  </div>
+  <script>
+function CheckAllArea(parent){
+	var area = document.getElementsByTagName('input');
+	for(var i=0; i<area.length; i++){
+		if(area[i].name == "area[]"){
+			area[i].checked = parent.checked;
+		}
+	}
+}
+  </script>
+  <div class="notice" style="margin:0;padding:7px;font-size:16px;text-align:left;font-weight:700;border-radius:0"><b>Hành động</b></div>
+  <div class="menu">
+    <p><input type="checkbox" onclick="CheckAllArea(this)"> Chọn tất cả</p>
+    <div class="controls">
+      {% if count2 %}
+      	{% set req2_column = '`'~farm_warehouse~'`.`item_id`, `'~farm_warehouse~'`.`count`, `'~farm_item~'`.`name`' %}
+      	{% set req2_sql = 'LEFT JOIN `'~farm_item~'` ON `'~farm_warehouse~'`.`item_id` = `'~farm_item~'`.`id` WHERE `'~farm_warehouse~'`.`user_id` = "'~user.id~'" AND `'~farm_warehouse~'`.`type` = "1" AND `'~farm_warehouse~'`.`count` > "0"' %}
+      	{% set req2 = query_select_table(farm_warehouse,req2_column,req2_sql) %}
+      <select name="tree" class="form-control"><option value="0">Chọn giống</option>
+        {% for res2 in req2 %}
+        <option value="{{res2['item_id']}}">{{res2['name']}} ({{res2['count']}})</option>
+		{% endfor %}
+      </select>&nbsp;
+      <select name="action" class="form-control"><option value="0">Chọn hành động</option><option value="plant">Gieo hạt</option>
+      {% else %}
+        <select name="action" class="form-control"><option value="0">Chọn hành động</option>
+      {% endif %}
+          <option value="watering">Tưới nước</option>
+          <option value="harvest">Thu hoạch</option>
+        </select>
+        <p><button type="submit" class="btn btn-sm btn-primary btn-block">Thực hiện</button></p>
+    </div>
+  </div>
+    </form>
+    {% for res in req %}
+      {% if id and res['id'] == id %}
+      	{% set data = res %}
+     <div class="notice" style="margin:0;padding:7px;font-size:16px;text-align:left;font-weight:700;border-radius:0"><b>Thông tin ô đất</b></div>
+      	{% if not data['name'] and not _self.ns(data['ns'], data['time'], data['end_time'], data['water_time']) == 0 %}
+     <div class="menu">Cây trồng: Chưa có</div>
+      	{% else %}
+     <div class="menu">Cây trồng: {{data['name']}} ({{_self.ns(data['ns'], data['time'], data['end_time'], data['water_time'])}}%)</div>
+     <div class="menu">{{data['end_time'] > 'now'|date('U') ? 'Thời gian còn: '~_self.timer(data['end_time'] - 'now'|date('U'))~'' : 'Đã chín'}}</div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+      <div class="sticked menu"><i class="fa fa-plus-circle" aria-hidden="true"></i> <a href="?act=buy_plot" style="font-weight:700">Mở rộng đất</a></div>
+</div>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+{% endif %}
+</div>
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+<div class="mainblok">
+  <div class="phdr">Top trồng trọt</div>
+  <div class="gmenu"><b>Điểm trồng trọt:</b> {{user['farm']|default(0)}}</div>
+  {% for ufarm in query_select_table('users','*','WHERE `farm` > "100" ORDER BY farm DESC LIMIT 9') %}
+  <div class="list1"><b>{{loop.index}}.</b> {{maunick(ufarm.nick)}} <span class="badge">{{ufarm.farm}}</span></div>
+  {% endfor %}
+</div>
+{% endset %}
+  {#{% if act in mods %}
+  <style>@media (max-width:600px){ #topDesktop{display:none} }</style>
+  {% endif %}
+<div id="topDesktop">#}
+{{block('w3_third')}}
+{#</div>#}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+{#=====hàm xử lý=====#}
+{% macro timer(time, mod) %}{% spaceless %}
+	{% if time <= 0 %}{% set time = 0 %}{% endif %}
+	{% set h = (time / 3600)|round(0,'floor') %}
+	{% set m = ((time - h * 3600) / 60)|round(0,'floor') %}
+	{% set s = time-h * 3600 - m * 60 %}
+	{% if mod %}
+		{{(h ? h~' giờ' : '')~(m ? (h ? ' ':'')~m~' phút' : '')~(mod == 2 ? (s ? (h or m ? ' ':'')~s~' giây' : '') : '' )}}
+	{% else %}
+		{{h~':'~(m < 10 ? '0' : '')~m~':'~(s < 10 ? '0' : '')~s}}
+	{% endif %}
+{% endspaceless %}{% endmacro %} 
+{#============================#}
+{% macro status(item,time,end_time,water_time) %}{% spaceless %}
+	{% if item %}
+		{% if time == 0 %}dat=0{% else %}
+			{% set timeU = "now"|date('U') %}
+			{% set time_count = timeU - time %}
+			{% set water_time = timeU - water_time %}
+			{% set interval = (end_time - time) / 6 %}
+			{% set w_interval = 2 * interval %}
+			{% if timeU >= end_time %}
+				dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/5
+			{% elseif time_count >= interval * 5 %}
+				dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/4
+			{% elseif time_count >= interval * 4 %}
+				dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/3
+			{% elseif time_count >= interval * 2 %}
+				dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/2
+			{% elseif time_count >= interval %}
+                dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/1
+            {% else %}
+                dat={{water_time > w_interval ? '0' : '1'}}&cay={{item}}/0
+            {% endif %}
+		{% endif %}
+	{% else %}0{% endif %}
+{% endspaceless %}{% endmacro %} 
+{#============================#}
+{% macro ns(ns, time, end_time, water_time) %}{% spaceless %}
+	{% if end_time == 0 %}0{% else %}
+		{% set time_1 = (end_time - time) / 3 %}
+		{% set time_2 = "now"|date('U') - water_time %}
+		{% if time_2 >= time_1 %}
+			{% set ns = ns-((100 * (time_2 - time_1) * 0.9 / time_1)|round(0,'floor')) %}
+			{% if ns < 10 %}{% set ns = 10 %}{% endif %}
+		{% else %}
+			{% set time_2 = min("now"|date('U'), end_time) - water_time %}
+			{% set ns = ns+((100 * time_2 * 3.6 / time_1)|round(0,'ceil')) %}
+			{% if ns > 100 %}{% set ns = 100 %}{% endif %}
+		{% endif %}
+		{{ns}}
+	{% endif %}
+{% endspaceless %}{% endmacro %}
+{#==end hàm xử lý==#}
+{% else %}{#nếu chưa có đất#}
+  {% if request_method()|lower == 'post' %}
+ 	{#==nhập dữ liệu mới==#}
+  	{% for i in 1..6 %}
+  		{% do insert_row_table(farm_area, 'user_id', user.id) %}
+  	{% endfor %}
+    {% do insert_row_array_table(farm_warehouse, {'user_id':user.id,'item_id':17,'type':0}) %}
+  	{% for res in  query_select_table(farm_item,'id','WHERE type = 1') %}
+  		{% do insert_row_array_table(farm_warehouse, {'user_id':user.id,'item_id':res['id'],'type':1}) %}
+  	{% endfor %}
+  	{% do update_row_array_table('users', {'sft_time':'now'|date('U')}, 'id', user.id) %}
+    {% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' vừa ghi danh vào [url=/play/farm]Giáo hội Dorew[/url]!'}) %}
+    {{redirect('/'~url|join('/'))}}
+  {% else %}
+  {% set title = 'Chào mừng đến với Vương quốc hắc ám' %}
+  {{block('head')}}
+  {% set w3_main4px_content %}
+  <div class="mainblok">
+    <div class="phdr"><i class="fa fa-gitlab" aria-hidden="true"></i> <b>Vương quốc hắc ám</b></div>
+    <div class="notice" style="margin:0;text-align:left;border-radius:0">
+      <p style="text-align:center;font-weight:700">Chào mừng bạn đến với <span style="color:red">Nông trại Dorew</span> - phiên bản Vương quốc hắc ám</p>
+      <div style="font-weight:500">
+        <div>
+          &emsp; Ở <b>Vương quốc hắc ám</b> có 21 thế lực với sức mạnh tương ứng với những con đường khác nhau. Trong đó, Dorew nằm trên con đường thứ 15, và được gọi với cái tên vô cùng nguy nga - tráng lệ: <b>Đại địa mẫu thần giáo hội</b>.
+        </div>
+        <div>
+          &emsp; Gần đây, giáo hội bị lộ ra phối phương ma dược và một loại phương thuốc thần bí được ẩn dưới một cái tên man rợ "<b>KARMA</b>". Thứ thuốc này sẽ giúp bản thân bạn có thể tự cường hoá cấp độ của mình, và giúp bạn có cơ hội được lọt vào danh sách những kẻ hiếm hoi được cai quản vương quốc này. Để có được chúng không hẳn là một công việc quá khó khăn, nuôi trồng các loại cây dược và may mắn điều chế thành công những ma dược sau là bạn đã có thể cường hoá:<br/>
+          +) <b>Bột ma thuật</b><br/>
+          +) <b>Lông vũ thiên thần</b><br/>
+          +) <b>Hào quang</b><br/>
+          +) <b>Thông thạo hắc ám</b><br/>
+          +) <b>Pha lê thần bí</b>
+        </div>
+        <div>
+          &emsp; Sau khi điều chế ma dược thành công thì bạn có thể uống chúng. Chậc...Hmm... Đây là thứ thuốc vô cùng khó uống, nhưng nếu uống vào người, bạn có thể Tấn thăng thành một trong 9 người trong danh sách 9 kẻ trồng trọt. Đặt trong trường hợp, bạn là kẻ thất bại trong lúc tham gia thử thách uống ma dược thì nửa số tài sản của bạn sẽ không cánh mà bay.
+        </div>
+        <div>
+          &emsp; Bạn cảm thấy bản thân mình đủ sức để gia nhập Vương quốc? Hãy click vào <b>XÁC NHẬN</b> ở phía bên dưới để ghi danh ngay từ hôm nay.
+        </div>
+      </div>
+    </div>
+    <div class="w3-center"><form method="post"><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary btn-block"/></form></div>
+  </div>
+  {% endset %}
+  {{block('w3_main4px')}}
+  {% endif %}{#end request mở đất mới#}
+{% endif %}{#end kiểm tra đất đai#}
+
+  
+  
+{{block('end')}}
+{% endif %}

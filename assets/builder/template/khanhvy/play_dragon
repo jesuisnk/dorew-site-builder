@@ -1,0 +1,406 @@
+{% set url = get_uri_segments() %}
+{% if url[0] == 'play_dragon' %}{{redirect('/play/dragon')}}{% endif %}
+{% use '_layout' %}
+{% use '_user_dragon' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{% set title = 'Đấu trường rồng' %}
+{% set table_name = 'play_dragon' %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set system_bot_info = select_table_row_data('users', 'nick', system_bot) %}
+{% set system_bot_dragon = select_table_row_data(table_name, 'nick', system_bot) %}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+{% set act,mod,id,shield = get_get('act'),get_get('mod'),url[2],get_get('shield') %}
+{% set dragon_money,name_dragon_money = 'do','Tiềm lực' %}{#tiền nuôi rồng#}
+{% set my = select_table_row_data('users', 'nick', is_login()) %}
+{% set my_dragon = select_table_row_data(table_name, 'nick', is_login()) %}
+{% set my_compound = select_table_row_data('user_maduoc', 'nick', is_login()) %}
+{% set user = select_table_row_data('users', 'nick', id) %}
+{% set user_dragon = select_table_row_data(table_name, 'nick', id) %}
+{% if get_row_count(table_name, {'nick':system_bot,'operator':'='}) == 0 %}
+	{% do insert_row_array_table(table_name, {'nick':system_bot,'dragon':random(1..9),'name':'Trùm Boss','hp':99999,'level':99,'mp':9999,'rank':99999,'time':0,'time_an':'now'|date('U'),'exp':99999}) %}
+{% elseif get_row_count(table_name, {'nick':user.nick,'operator':'='}) == 0 %}
+	{% set user = my %}
+	{% set user_dragon = my_dragon %}
+{% endif %}
+{% if system_bot_dragon.hp == 0 or system_bot_dragon.rank == 0 %}
+	{% do update_row_array_table(table_name, {'hp':99999,'rank':99999,'time_an':'now'|date('U')}, 'nick', system_bot) %}
+{% endif %}
+{% set acts = ['eat','play','shop','hp','mp','allhp','allmp','all','delete','kill','nhiemvu','info','shield','turn'] %}
+{% set act_name = {'eat':'Cho ăn','play':'Chơi bóng','shop':'Cửa hàng','hp':'Mua HP','mp':'Mua MP','allhp':'Hồi phục HP','allmp':'Hồi phục MP','all':'Hồi phục sức chiến','delete':'Bán rồng','kill':'Top lực chiến','nhiemvu':'Nhiệm vụ','info':'Thông tin mùa giải','shield':'Khiên phòng vệ','turn':'Tấn công'} %}
+{% set mods = ['dautruong'] %}
+{% set mod_name = {'dautruong':'Đấu trường'} %}
+
+{{block('head')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700"><a href="/play/dragon">Đấu trường rồng</a>{% if act|lower in acts and my.nick == user.nick %} &raquo; {{act_name[act]}}{% elseif mod|lower in mods and my.nick != user.nick %} &raquo; {{mod_name[mod]}}{% elseif my.nick != user.nick and not mod %} &raquo; Rồng của <a href="/user/{{user.nick}}">{{user.name}}</a>{% endif %}</div>
+  {% if get_row_count(table_name, {'nick':is_login(),'operator':'='}) == 0 %}
+  {#=====CHƯA CÓ RỒNG=====#}
+  	{% if request_method()|lower == 'post' %}
+  		{% set dragon_id = get_post('dragon_id') %}
+  		{% set dragon_name = get_post('dragon_name') %}
+  		{% if dragon_id not in 1..9 %}
+  <div class="rmenu"><b>Lỗi:</b><br/>Bạn chưa chọn rồng cần mua!</div>
+  		{% elseif dragon_name|length not in 3..20 %}
+  <div class="rmenu"><b>Lỗi:</b><br/>Tên của rồng không hợp lệ! Chiều dài: 3-10 ký tự.</div>
+  		{% elseif my[dragon_money] < 2000 %}
+  <div class="rmenu"><b>Lỗi:</b><br/>Bạn cần ít nhất 2000 {{name_dragon_money}} để mua rồng!</div>
+		{% else %}
+			{% do insert_row_array_table(table_name, {'nick':is_login(),'dragon':dragon_id,'name':dragon_name,'hp':100,'level':1,'mp':50,'time':'now'|date('U'),'time_an':'now'|date('U'),'atk':20}) %}
+			{% do update_row_table('users', dragon_money, (my[dragon_money]|trim-2000), 'nick', is_login()) %}
+  <div class="gmenu"><b>Xin chúc mừng!</b><br/>Bạn đã mua rồng thành công, bạn đã bị trừ 2000 {{name_dragon_money}} vào tài khoản!</div>
+			{{file_header('Refresh: 3; url=/play/dragon')}}
+  		{% endif %}
+  <div class="menu">&raquo; <a href="/play/dragon">Quay lại</a></div>
+  	{% else %}
+  <div class="menu">
+    Bạn chưa có rồng. Để mua rồng cần tốn <span style="color:red;font-weight:700">2000 {{name_dragon_money}}</span><br/>
+    {{name_dragon_money}} của bạn: <b>{{my[dragon_money]|number_format}}</b>
+    <hr/>Hãy chọn một con rồng mà bạn muốn mua:<br/>
+    <form method="post">
+    {% for dragon_id in 1..9 %}
+      <input type="radio" name="dragon_id" value="{{dragon_id}}" /> <img src="https://dorew-site.github.io/assets/dragon/{{dragon_id}}/1.gif" alt="dragon" /><br/>
+    {% endfor %}
+      <br/><b>Tên của rồng:</b>
+      <br/><input class="form-control" style="width:50%" name="dragon_name" type="text"/>
+      <br/>
+      <button type="submit" class="btn-primary">Mua</button>
+    </form>
+  </div>
+  	{% endif %}
+  {#===END CHƯA CÓ RỒNG===#}
+  {% else %}
+  {#====THÔNG TIN RỒNG====#}
+	{% set my_dragon_i = _self.dlevel(table_name,my.nick) %}
+	{% set my_dra = my_dragon_i|split('|') %}
+	{% set dragon = _self.dlevel(table_name,user.nick) %}
+	{% set dra = dragon|split('|') %}
+	{% if act|lower in acts and my.nick == user.nick %}
+		{{block('act_'~act|lower)}}
+		<div class="menu">&raquo; <a href="/play/dragon">Quay lại</a></div>
+	{% elseif mod|lower in mods and my.nick != user.nick %}
+		{{block('mod_'~mod|lower)}}
+		<div class="menu">&raquo; <a href="/play/dragon">Quay lại</a></div>
+	{% else %}
+		{% if user_dragon['level'] != dra[1] %}
+			{#{% do update_row_array_table(table_name, {'level':dra[1],'hp':dra[2],'mp':dra[3]}, 'nick', is_login()) %}#}
+			{% do update_row_array_table(table_name, {'level':dra[1]}, 'nick', is_login()) %}
+		{% endif %}
+		{% if user_dragon['rank'] < 0 %}
+			{% do update_row_table(table_name, 'rank', 0, 'nick', is_login()) %}
+		{% endif %}
+		{#thời gian trứng nở#}
+		{% set dratime = user_dragon['time'] + 43200 - 'now'|date('U') %}
+		{% set timetrung = dratime|date('H:i')~' ('~dratime//60~' phút)' %}
+		{#thời gian cho ăn#}
+		{% set draan = user_dragon['time_an'] + 43200 - 'now'|date('U') %}
+		{% set timean = draan|date('H:i')~' ('~draan//60~' phút)' %}
+		{#hiển thị#}
+		{% if my.nick == user.nick %}
+  <div class="notice" style="border-radius:0;margin:0;text-align:left">{{(user_dragon['time'] > ('now'|date('U') - 43200) ? 'Trứng rồng của bạn còn '~timetrung~' nữa sẽ nở' : (user_dragon['time_an'] + 43200) < 'now'|date('U') ? 'Rồng của bạn đang đói!' : 'Cậu chủ ơi! Em no quá rồi :))<br/>» '~timean~' nữa bạn có thể cho rồng ăn tiếp!')|raw}}</div>
+    	{% endif %}
+  <div class="menu">
+    <table style="width:100%;cellpadding:0;cellspacing:0">
+      <tr>
+        <td style="width:50%;text-align:center">
+          <div style="padding:4px;font-size:15px;border:1px dotted darkviolet;border-radius:5px;max-width:{{html_decode(user_dragon['name'])|length*15}}px;margin:auto;margin-bottom:4px"><span style="color:red;font-weight:700">{{html_decode(user_dragon['name'])}}</span></div>
+          
+          {{(user_dragon['time'] > ('now'|date('U') - 43200) ? '<img src="https://dorew-site.github.io/assets/dragon/trung.gif" alt="Trứng"/>':'<img src="https://dorew-site.github.io/assets/dragon/'~user_dragon['dragon']~'/'~_self.tienhoa(table_name,user.nick)~'.gif" alt="Dragon"/>')|raw}}
+        </td>
+        <td style="text-align:left">
+          <span style="color:blue;font-weight:700">Level: {{user_dragon['level']}}</span>
+          <br/>Tiến hoá: <b>{{_self.tienhoa(table_name,user.nick)}}</b>
+          <br/>EXP: <b>{{user_dragon['exp']}}</b>/{{dra[0]}}
+          <br/>HP: <b>{{user_dragon['hp']}}</b>/{{dra[2]}}
+          <br/>MP: <b>{{user_dragon['mp']}}</b>/{{dra[3]}}
+          <br/>Hạng: {{_self.rank(table_name,user.nick,'league_icon')}} {{_self.rank(table_name,user.nick,'rank')}} [{{user_dragon['rank']}}]
+        </td>
+      </tr>
+    </table>
+    <div style="padding:6px;line-height:1.8">
+      {% if my.nick == user.nick %}
+      <table style="width:100%;cellpadding:0;cellspacing:0">
+        <tr>
+          <td style="width:50%;text-align:left">
+            <a href="?act=eat" class="btn btn-sm" style="background-color:#cc9933"><b>Cho ăn</b></a>
+            <a href="?act=play" class="btn btn-sm" style="background-color:#9999ff"><b>Cho chơi</b></a>
+            <a href="?act=shop" class="btn btn-sm" style="background-color:#ffcc00"><b>Shop</b></a>
+            <a href="?act=delete" class="btn btn-sm" style="background-color:#cccccc"><b>Bán rồng</b></a>
+          </td>
+          <td style="text-align:left">
+            <a href="?act=kill" class="btn btn-sm" style="background-color:#52d017"><b>Đấu trường</b></a>
+            <a href="?act=nhiemvu" class="btn btn-sm" style="background-color:#ff9999"><b>Nhiệm vụ</b></a>
+          </td>
+        </tr>
+      </table>
+      {% else %}
+      <a href="?mod=dautruong" class="btn btn-success btn-sm">Khiêu chiến</a>
+      <a href="/play/dragon" class="btn btn-primary btn-sm">Rồng của tôi</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="menu">&raquo; <a href="?act=info">Hướng dẫn</a></div>
+	{% endif %}
+  {#==END THÔNG TIN RỒNG==#}
+  {% endif %}
+</div>
+
+
+
+{% endset %}
+{{block('w3_main4px')}}
+{#=====FUNCTION=====#}
+{% macro dlevel(table_name, user) %}{% spaceless %}
+	{% set system_bot = select_table_row_data('system','id',1).bot %}
+	{% set dlevel = select_table_row_data(table_name,'nick',user) %}
+	{% if dlevel.exp in 0..49 %}
+		{% set exp, level, hp, mana = 50, 1, 100, 50 %}
+	{% elseif dlevel.exp in 50..99 %}
+		{% set exp, level, hp, mana = 100, 2, 150, 75 %}
+	{% elseif dlevel.exp in 100..174 %}
+		{% set exp, level, hp, mana = 175, 3, 200, 100 %}
+    {% elseif dlevel.exp in 175..279 %}
+        {% set exp, level, hp, mana = 280, 4, 250, 125 %}
+    {% elseif dlevel.exp in 280..399 %}
+        {% set exp, level, hp, mana = 400, 5, 300, 150 %}
+    {% elseif dlevel.exp in 400..539 %}
+        {% set exp, level, hp, mana = 540, 6, 350, 175 %}
+    {% elseif dlevel.exp in 540..669 %}
+        {% set exp, level, hp, mana = 670, 7, 400, 200 %}
+    {% elseif dlevel.exp in 670..799 %}
+        {% set exp, level, hp, mana = 800, 8, 450, 225 %}
+    {% elseif dlevel.exp in 800..999 %}
+        {% set exp, level, hp, mana = 1000, 9, 500, 250 %}
+    {% elseif dlevel.exp in 1000..1249 %}
+        {% set exp, level, hp, mana = 1250, 10, 550, 275 %}
+    {% elseif dlevel.exp in 1250..1599 %}
+        {% set exp, level, hp, mana = 1600, 11, 600, 300 %}
+    {% elseif dlevel.exp in 1600..1999 %}
+        {% set exp, level, hp, mana = 2000, 12, 650, 325 %}
+    {% elseif dlevel.exp in 2000..2449 %}
+        {% set exp, level, hp, mana = 2450, 13, 700, 350 %}
+    {% elseif dlevel.exp in 2450..2999 %}
+        {% set exp, level, hp, mana = 3000, 14, 750, 375 %}
+    {% elseif dlevel.exp in 3000..3699 %}
+        {% set exp, level, hp, mana = 3700, 15, 800, 400 %}
+    {% elseif dlevel.exp in 3700..4599 %}
+        {% set exp, level, hp, mana = 4600, 16, 850, 425 %}
+    {% elseif dlevel.exp in 4600..5499 %}
+        {% set exp, level, hp, mana = 5500, 17, 900, 450 %}
+    {% elseif dlevel.exp in 5500..6499 %}
+        {% set exp, level, hp, mana = 6500, 18, 950, 475 %}
+    {% elseif dlevel.exp in 6500..7599 %}
+        {% set exp, level, hp, mana = 7600, 19, 1000, 500 %}
+    {% elseif dlevel.exp in 7600..8899 %}
+        {% set exp, level, hp, mana = 8900, 20, 1050, 525 %}
+    {% elseif dlevel.exp in 8900..10199 %}
+        {% set exp, level, hp, mana = 10200, 21, 1100, 550 %}
+    {% elseif dlevel.exp in 10200..11799 %}
+        {% set exp, level, hp, mana = 11800, 22, 1150, 575 %}
+    {% elseif dlevel.exp in 11800..12899 %}
+        {% set exp, level, hp, mana = 12900, 23, 1200, 600 %}
+    {% elseif dlevel.exp in 12900..14399 %}
+        {% set exp, level, hp, mana = 14400, 24, 1250, 625 %}
+    {% elseif dlevel.exp in 14400..16999 %}
+        {% set exp, level, hp, mana = 16700, 25, 1300, 650 %}
+    {% elseif dlevel.exp in 16700..17499 %}
+        {% set exp, level, hp, mana = 17500, 26, 1350, 675 %}
+    {% elseif dlevel.exp in 17500..17999 %}
+        {% set exp, level, hp, mana = 18000, 27, 1400, 700 %}
+    {% elseif dlevel.exp in 18000..19999 %}
+        {% set exp, level, hp, mana = 20000, 28, 1450, 725 %}
+    {% elseif dlevel.exp in 20000..24999 %}
+        {% set exp, level, hp, mana = 25000, 29, 1500, 750 %}
+    {% elseif dlevel.exp in 25000..29999 %}
+        {% set exp, level, hp, mana = 30000, 30, 1550, 775 %}
+    {% elseif dlevel.exp in 30000..34999 %}
+        {% set exp, level, hp, mana = 35000, 31, 1600, 800 %}
+    {% elseif dlevel.exp in 35000..39999 %}
+        {% set exp, level, hp, mana = 40000, 32, 1650, 825 %}
+    {% elseif dlevel.exp in 40000..45999 %}
+        {% set exp, level, hp, mana = 45000, 33, 1700, 850 %}
+    {% elseif dlevel.exp in 45000..49999 %}
+        {% set exp, level, hp, mana = 50000, 34, 1750, 875 %}
+    {% elseif dlevel.exp in 50000..54999 %}
+        {% set exp, level, hp, mana = 55000, 35, 1800, 900 %}
+    {% elseif dlevel.exp in 55000..59999 %}
+        {% set exp, level, hp, mana = 60000, 36, 1850, 925 %}
+    {% elseif dlevel.exp in 60000..64999 %}
+        {% set exp, level, hp, mana = 65000, 37, 1900, 950 %}
+    {% elseif dlevel.exp in 65000..69999 %}
+        {% set exp, level, hp, mana = 70000, 38, 1950, 975 %}
+    {% elseif dlevel.exp in 70000..74999 %}
+        {% set exp, level, hp, mana = 75000, 39, 2000, 1000 %}
+    {% elseif dlevel.exp in 75000..79999 %}
+        {% set exp, level, hp, mana = 80000, 40, 2050, 1025 %}
+    {% elseif dlevel.exp in 80000..999998 %}
+        {% set exp, level, hp, mana = 999999, 50, 2100, 1050 %}
+	{% elseif dlevel.exp >= 999999 %}
+		{% set exp, level, hp, mana = 99999, 99, 99999, 9999 %}
+	{% endif %}
+	{% if user == system_bot %}
+		{% set exp, level, hp, mana = 99999, 99, 99999, 9999 %}
+	{% endif %}
+{{exp}}|{{level}}|{{hp}}|{{mana}}
+{% endspaceless %}{% endmacro %}
+
+{% macro tienhoa(table_name, user) %}{% spaceless %}
+	{% set system_bot = select_table_row_data('system','id',1).bot %}
+	{% set dragon = select_table_row_data(table_name,'nick',user) %}
+	{% if dragon.level in 1..9 %}
+		{% set level = 1 %}
+	{% elseif dragon.level in 10..19 %}
+		{% set level = 2 %}
+	{% elseif dragon.level in 20..29 %}
+		{% set level = 3 %}
+	{% elseif dragon.level in 30..39 %}
+		{% set level = 4 %}
+	{% elseif dragon.level in 40..49 %}
+		{% set level = 5 %}
+	{% elseif dragon.level >= 50 %}
+		{% set level = 6 %}
+	{% endif %}
+{{level}}
+{% endspaceless %}{% endmacro %}
+
+{% macro rank(table_name, user, get) %}{% spaceless %}
+	{% set system_bot = select_table_row_data('system','id',1).bot %}
+	{% set dlevel = select_table_row_data(table_name,'nick',user) %}
+	{% if dlevel.rank in 0..399 %}
+		{% set rank_name = 'Unranked' %}
+		{% set rank_exp = '0' %}
+		{% set rank_reward = 2500 %}
+	{% elseif dlevel.rank in 400..799 %}
+		{% set rank_name = 'Bronze' %}
+		{% if dlevel.rank in 400..499 %}
+			{% set rank_exp = '3' %}
+			{% set rank_reward = 5000 %}
+		{% elseif dlevel.rank in 500..599 %}
+			{% set rank_exp = '2' %}
+			{% set rank_reward = 10000 %}
+		{% else %}
+			{% set rank_exp = '1' %}
+			{% set rank_reward = 15000 %}
+		{% endif %}
+	{% elseif dlevel.rank in 800..1399 %}
+		{% set rank_name = 'Silver' %}
+        {% if dlevel.rank in 800..999 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 20000 %}
+        {% elseif dlevel.rank in 1000..1199 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 25000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 30000 %}
+        {% endif %}
+    {% elseif dlevel.rank in 1400..1999 %}
+        {% set rank_name = 'Gold' %}
+        {% if dlevel.rank in 1400..1599 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 35000 %}
+        {% elseif dlevel.rank in 1600..1799 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 40000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 45000 %}
+        {% endif %}
+    {% elseif dlevel.rank in 2000..2599 %}
+        {% set rank_name = 'Crystal' %}
+        {% if dlevel.rank in 2000..2199 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 50000 %}
+        {% elseif dlevel.rank in 2200..2399 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 55000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 60000 %}
+        {% endif %}
+    {% elseif dlevel.rank in 2600..3199 %}
+        {% set rank_name = 'Master' %}
+        {% if dlevel.rank in 2600..2799 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 65000 %}
+        {% elseif dlevel.rank in 2800..2999 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 70000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 75000 %}
+        {% endif %}
+    {% elseif dlevel.rank in 3200..4099 %}
+        {% set rank_name = 'Champion' %}
+        {% if dlevel.rank in 3200..3499 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 80000 %}
+        {% elseif dlevel.rank in 3500..3799 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 85000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 90000 %}
+        {% endif %}
+    {% elseif dlevel.rank in 4100..4999 %}
+        {% set rank_name = 'Titan' %}
+        {% if dlevel.rank in 4100..4399 %}
+            {% set rank_exp = '3' %}
+			{% set rank_reward = 94000 %}
+        {% elseif dlevel.rank in 4400..4699 %}
+            {% set rank_exp = '2' %}
+			{% set rank_reward = 980000 %}
+        {% else %}
+            {% set rank_exp = '1' %}
+			{% set rank_reward = 102000 %}
+        {% endif %}
+    {% else %}
+        {% set rank_name = 'Legend' %}
+        {% set rank_exp = '0' %}
+		{% set rank_reward = 106000 %}
+	{% endif %}
+	{% if get == 'reward' %}
+		{{rank_reward}}
+	{% elseif get == 'league' %}
+		{{rank_name}}
+	{% elseif get == 'league_image' %}
+		<img src="https://dorew-site.github.io/assets/rank/{{rank_name}}_League.png" alt="{{rank_name}}" style="max-width:30px;max-height:30px"/>
+	{% elseif get == 'league_icon' %}
+		<img src="https://dorew-site.github.io/assets/rank/{{rank_name}}_League.png" alt="{{rank_name}}" style="max-width:15px;max-height:15px"/>
+	{% elseif get == 'rank' %}
+		{% if rank_name == 'Unranked' %}Không xếp hạng{% else %}{{rank_name}}{% endif %}{% if rank_exp != '0' %}{{rank_exp}}{% endif %}
+	{% elseif get == 'rank_image_url' %}
+		{% if rank_name == 'Unranked' %}
+			{% set get_rank = rank_name~'_League' %}
+		{% elseif rank_name == 'Legend' %}
+			{% set get_rank = rank_name~'/'~rank_name %}
+		{% else %}
+			{% set get_rank = rank_name~'/'~rank_name~rank_exp %}
+		{% endif %}
+		https://dorew-site.github.io/assets/rank/{{get_rank}}.png
+	{% elseif get == 'rank_image' %}
+		{% if rank_name == 'Unranked' %}
+			{% set get_rank = rank_name~'_League' %}
+		{% elseif rank_name == 'Legend' %}
+			{% set get_rank = rank_name~'/'~rank_name %}
+		{% else %}
+			{% set get_rank = rank_name~'/'~rank_name~rank_exp %}
+		{% endif %}
+		<img src="https://dorew-site.github.io/assets/rank/{{get_rank}}.png" alt="{{rank_name}}" style="width:30px;height:30px"/>
+	{% elseif get == 'rank_icon' %}
+		{% if rank_name == 'Unranked' %}
+			{% set get_rank = rank_name~'_League' %}
+		{% elseif rank_name == 'Legend' %}
+			{% set get_rank = rank_name~'/'~rank_name %}
+		{% else %}
+			{% set get_rank = rank_name~'/'~rank_name~rank_exp %}
+		{% endif %}
+		<img src="https://dorew-site.github.io/assets/rank/{{get_rank}}.png" alt="{{rank_name}}" style="width:20px;height:20px"/>
+	{% else %}
+		{{rank_name}}|{{rank_exp}}
+	{% endif %}
+{% endspaceless %}{% endmacro %}
+{#===END FUNCTION===#}
+{{block('end')}}

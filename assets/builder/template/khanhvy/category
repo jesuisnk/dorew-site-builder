@@ -1,0 +1,121 @@
+{% use '_blog' %}
+{% use '_layout' %}
+
+{% set url = get_uri_segments() %}
+{% from '_functions' import ago,rwurl,paging,post_prefix %}
+{% from '_users' import maunick,getAvtUser %}
+{% set table_name = 'blog' %}
+{% set uri = uri|default('index') %}
+{% set cat = select_table_row_data('category', 'id', url[1]|split('-')|first|trim) %}
+{% set title = cat.name|default('Chuyên mục') %}
+{{block('head')}}
+
+{% set w3_main4px_content %}
+{% if cat.name %}
+	<ul class="breadcrumb" style="z-index:0">
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/"><span itemprop="title"><i class="fa fa-home" aria-hidden="true"></i></span></a></span></li>
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category"><span itemprop="title">Chuyên mục</span></a></span></li>
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category/{{cat.id}}-{{cat.slug}}/"><span itemprop="title">{{cat.name}}</span></a></span></li>
+      {% if post_prefix(cat.id,'0',url[2]) not in ['',null,NULL,'Array'] and url[2] != '' %}
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category/{{cat.id}}-{{cat.slug}}/{{url[2]}}"><span itemprop="title">{{post_prefix(cat.id,'0',url[2])}}</span></a></span></li>
+      {% endif %}
+	</ul>
+	<div style="text-align:left;font-size:14px"><a href="/search" title="Tìm kiếm"><button type="button" class="btn btn-sm btn-primary"><i class="fa fa-search" aria-hidden="true"></i> Tìm kiếm</button></a>{% if is_login() %}<a href="/manager/post/{{cat.id}}-{{cat.slug}}" class="btn btn-success btn-sm" style="margin-left:5px"><i class="fa fa-pencil-square" aria-hidden="true"></i> Chủ đề mới</a>{% endif %}</div>
+  
+<div class="mainblok">
+    {% set list_prefix = query_select_table('blog', '*', 'WHERE `category` = "'~cat.id~'" AND prefix IS NOT NULL') %}
+    {% set prefix = [] %}
+    {% for blog in list_prefix %}
+        {% set prefix = prefix|merge({(blog.prefix):post_prefix(cat.id,'0',blog.prefix)}) %}
+    {% endfor %}
+    {% if post_prefix(cat.id,'0',url[2]) not in ['',null,NULL,'Array'] and url[2] != '' %}
+        {% set data = query_select_table('blog', '*', "WHERE `prefix` = '"~url[2]~"' AND `category` = '"~cat.id~"' ORDER BY update_time DESC") %}
+        {% set total = data|length %}
+    {% else %}
+        {% set data = select_table_where_data('blog', 'category', cat.id, 'update_time', 'desc') %}
+        {% set total = data.total|default(0) %}
+    {% endif %}
+
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+    {% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p=url[2]|default(1) %}
+  {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  {% if p > page_max %}{% set p = page_max %}{% endif %}
+  {% set st=p*per-per %}
+  {% if total == '0' %}
+    <div class="list1">Chưa có bài viết nào</div>
+  {% else %}
+    {% for blog in data|slice(st,per) %}
+      {% if blog.id %}
+        {% set category = select_table_row_data('category', 'id', blog.category).name %}
+  		{% set author = select_table_row_data('users', 'nick', blog.author) %}
+  		{% set cmt = select_table_where_data('cmt', 'blogid', blog.id, 'id', 'asc') %}
+  		{% set news = select_table_row_data('news', 'blogid', blog.id) %}
+<div class="structItemContainer {% if blog.sticked=='y' %}sticked{% else %}list1{% endif %}">
+  <div class="structItemContainer-group">
+	<div class="structItem structItem--thread">
+      <div class="structItem-cell structItem-cell--icon">
+        <div class="structItem-iconContainer">
+          <img src="{{getAvtUser(blog.author)}}" alt="{{author.name}}" class="imgAvtUser imgAvt-{{author.nick}}" style="border:.5px solid #444;width:38px;height:38px"/>
+        </div>
+      </div>
+      <div class="structItem-cell structItem-cell--main" data-xf-init="touch-proxy">
+        <div class="structItem-title">
+          <span class="topic cat_{{random(['red','blue','green','orange'])}}"><i class="fa fa-{{random(['rocket','plane','bicycle','subway','train','motorcycle','bus','car'])}}"></i> {% if news.id %}Bảng tin{% elseif blog.prefix != NULL %}{{post_prefix(blog.category,'0',blog.prefix)}}{% else %}{{category}}{% endif %}</span>
+          {% if blocked=='y' %}<i class="fa fa-lock" style="color:red" aria-hidden="true"></i> {% endif %}<a href="/forum/{{blog.id}}-{{blog.slug}}.html"> {{html_decode(blog.title)}}</a>
+        </div>
+        <div class="structItem-minor">
+          <ul class="structItem-parts">
+            <li><a href="/user/{{blog.author}}" dir="auto" itemprop="name">{{maunick(blog.author)}}</a></li>
+            <li class="structItem-startDate"><time class="u-dt" dir="auto">Lúc {{ago(blog.time)}}</time></li>
+          </ul>
+        </div>
+		</div>
+      <div class="structItem-cell structItem-cell--meta" title="First message reaction score: 0">
+        <dl class="pairs pairs--justified">
+          <dt>Trả lời</dt>
+          <dd>{% if cmt|length > '1' %}{{cmt|length-1}}{% else %}0{% endif %}</dd>
+        </dl>
+        <dl class="pairs pairs--justified structItem-minor">
+          <dt>Lượt xem</dt>
+          <dd>{{blog.view}}</dd>
+        </dl>
+      </div>
+      <div class="structItem-cell structItem-cell--latest">
+        <time class="structItem-latestDate u-dt" dir="auto">{% if cmt|length > '1' %}{{ago(cmt|last.time)}}{% else %}{{ago(blog.time)}}{% endif %}</time>
+        <div class="structItem-minor">
+          {% if cmt|length > '1' %}<a href="/user/{{cmt|last.author}}" dir="auto" itemprop="name">{{maunick(cmt|last.author)}}</a>{% else %}<a href="/user/{{blog.author}}" dir="auto" itemprop="name">{{maunick(blog.author)}}</a>{% endif %}
+        </div>
+      </div>
+      <div class="structItem-cell structItem-cell--icon structItem-cell--iconEnd">
+        <div class="structItem-iconContainer">
+          {% if cmt|length > '1' %}<img src="{{getAvtUser(cmt|last.author)}}" alt="{{author.name}}" class="imgAvtUser imgAvt-{{cmt|last.author}}" style="border:.5px solid #444;width:32px;height:32px"/>{% else %}<img src="{{getAvtUser(blog.author)}}" alt="{{author.name}}" class="imgAvtUser" style="border:.5px solid #444;width:32px;height:32px"/>{% endif %}
+        </div>
+      </div>
+  	</div>
+  </div>
+</div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {{paging('category/'~cat.id~'-'~cat.slug~'/',p,page_max)|replace({'/=':'/'})|raw}}
+  {% if prefix|length >= 1 and post_prefix(cat.id,'0',url[2]) in ['',null,NULL,'Array'] %}
+  </div><div class="mainblok">
+    <div class="phdr">Cùng chuyên mục</div>
+    {% for rwc,subcategory in prefix %}
+      <div class="list1"><a href="/category/{{cat.id}}-{{cat.slug}}/{{rwc}}">{{subcategory}}</a> ({{get_row_count('blog',{'prefix':rwc,'operator':'='})|default(0)}})</div>
+    {% endfor %}
+  {% endif %}
+ </div>{# end div.mainblok #}
+{% else %}
+{#===================CATEGORY LIST=======================#}
+  {{block('category')}}
+{#===================END CATEGORY=======================#}
+{% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+  
+{{block('end')}}

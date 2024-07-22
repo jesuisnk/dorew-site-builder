@@ -1,0 +1,80 @@
+{% block header %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="google" value="notranslate">
+  <meta name="robots" content="noindex">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% set title = title|default('Dai') %}
+  {% if title != 'Dai Blog' %}{% set title = title~' | Dai Blog' %}{% endif %}
+  <title>{{title}}</title>
+  <meta name="description" content="{{description|default('Thích Ngao Du')}}" />
+  <script src="https://abridge.netlify.app/theme.min.js"></script>
+  <link rel="stylesheet" href="https://abridge.netlify.app/abridge-switcher.css">
+  <script defer src="https://abridge.netlify.app/abridge-bundle.min.js"></script>
+  <link rel="icon" href="https://i.imgur.com/pJD6hdE.png" />
+  <link rel="dns-prefetch" href="https://i.imgur.com" />
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+  <link rel="dns-prefetch" href="https://raw.githack.com" />
+  <link rel="dns-prefetch" href="https://images.weserv.nl" />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="https://unpkg.com" />
+  <link rel="dns-prefetch" href="https://cdn.statically.io" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+</head>
+
+<body>
+  <header>
+    <nav>
+      <div><h1><a href="/">Dai Blog</a></h1></div>
+      <div>
+        <ul>
+          {# <li> <h2><a href="/about/">About</a></h2> </li><li> <h2><a href="/posts/">Posts</a></h2> </li><li> <h2><a href="/categories/">Categories</a></h2> </li><li> <h2><a href="/tags/">Tags</a></h2> </li> #}
+          <li class="js"><i type="reset" id="mode" class="svgs adjust"></i></li></ul>
+      </div>
+      <div>
+        <form autocomplete=off class="js" name="goSearch" id="searchbox">
+          <div class="searchd">
+            <input id="searchinput" type="text" placeholder="Search" title="Search" />
+            <button type="submit" title="Search"><i class="svgs search"></i></button>
+          </div>
+          <div><div id="suggestions"></div></div>
+        </form>
+      </div>
+    </nav>
+  </header>
+  
+<main>
+{% endblock %}
+  
+{#===========================================================================================================#}
+
+{% block footer %}
+
+</main>
+
+<footer>
+  <hr>
+  <div class="c">
+    <p class="s90">Copyright <i class="fa fa-copyright"></i> {{"now"|date("Y")}}</p>
+    <p class="s90"><i class="fa fa-free-code-camp" aria-hidden="true"></i> Powered by <a href="https://nosine.gq">Nosine</a></p>
+  </div>
+</footer>
+  
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fork-awesome/1.2.0/css/fork-awesome.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/placeholder-loading/dist/css/placeholder-loading.min.css">
+  <script src="https://unpkg.com/hyperscript.org@0.9.7"></script>
+  <script src="https://unpkg.com/htmx.org@1.8.2"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.8.2/htmx.min.js"></script>
+
+</body>
+</html>
+{% endblock %}
+  

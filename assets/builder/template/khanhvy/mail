@@ -1,0 +1,226 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% use '_mail' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{% set table_name = 'mail' %}
+{# table: mail - column: id, sender_receiver, nick, content, time, view #}
+{% set url = get_uri_segments() %}
+{% if is_login() %}
+{# url[1]: system, nick #}
+{% set sender = select_table_row_data('users','nick',is_login()) %}
+{% set sender_blocklist = sender.blocklist|split('.') %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{#=============================================================================#}
+{% if url[1] == 'count' %}
+{'notify':'{{select_table_where_data('mail', 'sender_receiver', is_login()~'_'~system_bot)|length-1}}', 'mail':'{{sender.new_mail|split('.')|length-1}}'}
+{% else %}
+{#=============================================================================#}
+{% if url[1] == 'system' %}
+	{% set title = 'Hòm thư hệ thống' %}
+{% else %}
+	{% set title = 'Tin nhắn' %}
+	{% set receiver = select_table_row_data('users','nick',rwurl(url[1])) %}
+	{% set receiver_blocklist = receiver.blocklist|split('.') %}
+{% endif %}
+{{block('head')}}
+
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/mail">Tin nhắn</a></li>
+  {% if url[1] == 'system' %}
+  <li><a href="/mail/{{url[1]}}">{{title}}</a></li>
+  {% endif %}
+</ul>
+{% if url[1] == 'system' %}
+{#=============================================================================#}
+{#=====D.S THÔNG BÁO=====#}
+{% set w3_main4px_content %}
+  {% set data = select_table_where_data(table_name, 'sender_receiver', is_login()~'_'~system_bot, 'time', 'desc') %}
+  {% set total = data|length-1 %}
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+    {% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p=get_get('page')|default(1) %}
+  {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  {% if p > page_max %}{% set p = page_max %}{% endif %}
+  {% set st=p*per-per %}
+  {% if total == '0' %}
+    <div class="mainblok"><div class="menu">Danh sách trống</div></div>
+  {% else %}
+    <div class="mainblok">
+  		{% for mail in data|slice(st,per) %}
+  			{% set sr = select_table_row_data('users','nick',mail.nick) %}
+  			{% if sr.id %}
+  <div class="mainblok" style="{% if mail.view != 'yes' and mail.type != 'married' %}{% do update_row_table(table_name, 'view', 'yes', 'id', mail.id) %}background-color:#ffffc8;{% endif %}border-top:0;border-left:0;border-right:0{% if loop.last %};border-bottom:0{% endif %}">
+    <div class="postprofile">
+      <div class="postprofileInner" style="margin-top:0;padding-top:0">
+        <div class="profileAvatar"><img src="{{getAvtUser(sr.nick)}}" width="38" height="38" class="imgAvtUser imgAvt-{{sr.nick}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author">{{bbcode(mail.content|slice(0,150))}}{% if mail.content|length > '150' %}...{% endif %}</div>
+          <div style="font-size:15px"><span style="color:#999"><i class="fa fa-clock-o"></i> {{ago(mail.time)}}</span>{% if mail.type == 'married' %} <a href="/users/married?act=accept-engagement&nick={{sr.nick}}"><button class="btn btn-sm btn-primary">Đồng ý</button></a> <a href="/users/married?act=refuse-marriage-proposal&nick={{sr.nick}}"><button class="btn btn-sm btn-warning">Từ chối</button></a>{% endif %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  			{% endif %}
+      		{% if mail.type != 'married' %}{% do delete_row_table(table_name, 'id', mail.id) %}{% endif %}
+  		{% endfor %}
+    </div>{# end div.mainblok #}
+    {{paging(url|join('/')~'?page=',p,page_max)}}
+  {% endif %}
+{#===END D.S THÔNG BÁO===#}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] not in ['',null] and receiver.id %}
+{% if url[1] in [is_login(),system_bot] %}{{redirect('/mail/system')}}{% endif %}
+{% set mail_list_sender = sender.mail_list|split('.') %}
+{% set mail_list_receiver = receiver.mail_list|split('.') %}
+{% set w3_twothird_content %}
+	{% if get_get('mod') == 'blocklist' and receiver.nick != is_login() %}
+    	{% if receiver.nick not in sender_blocklist %}
+    		{% set blocklist = sender.blocklist~receiver.nick~'.' %}
+    	{% else %}
+    		{% set blocklist = sender.blocklist|replace({(receiver.nick~'.'):''}) %}
+    	{% endif %}
+    	{% do update_row_table('users', 'blocklist', blocklist, 'nick', is_login()) %}
+    	{{redirect('/'~url|join('/'))}}
+    {% endif %}
+<div style="font-size:14px">
+  <span style="float:left"><a href="/user/{{receiver.nick}}" class="btn btn-sm btn-primary">{{receiver.name}}{% if receiver.on < ('now'|date('U')-300) %} <span style="color:orange">(off)</span>{% endif %}</a></span>
+  <div style="text-align:right">
+    <a href="?mod=blocklist" class="btn btn-danger btn-sm">{% if receiver.nick not in sender_blocklist %}<i class="fa fa-ban" aria-hidden="true"></i> Chặn{% else %}<i class="fa fa-unlock-alt" aria-hidden="true"></i> Mở chặn{% endif %}</a>
+  </div>
+</div>
+{#=====ĐÁNH DẤU ĐÃ XEM=====#}
+{% set s_new_mail = sender.new_mail|replace({(receiver.nick~'.'):''}) %}
+{% do update_row_table('users', 'new_mail', s_new_mail, 'nick', is_login()) %}
+{#===END ĐÁNH DẤU ĐÃ XEM===#}
+{% if rwurl(url[1]) != system_bot %}
+{#=====KIỂM TRA NGƯỜI DÙNG TRONG BLOCKLIST=====#}
+{% if receiver.nick not in sender_blocklist and is_login() not in receiver_blocklist %}
+{#=====GỬI TIN NHẮN=====#}
+{% if request_method()|lower == 'post' %}
+	{% set content,submit = get_post('msg'),get_post('submit') %}
+	{% if content|length < '4' or submit != 'send' %}
+		{% set notice = 'Lỗi rồi!!!' %}
+    {% endif %}
+    {% if notice %}
+<div class="mainblok"><div class="rmenu">{{notice}}</div></div>
+	{% else %}
+		{# lưu vào người gửi #}
+		{% if receiver.nick not in mail_list_sender %}
+			{% do update_row_table('users', 'mail_list', receiver.nick~'.'~sender.mail_list, 'nick', is_login()) %}
+		{% else %}
+			{% do update_row_table('users', 'mail_list', receiver.nick~'.'~sender.mail_list|replace({(receiver.nick~'.'):''}), 'nick', is_login()) %}
+		{% endif %}
+		{% set rows_sender = {'sender_receiver':is_login()~'_'~receiver.nick,'nick':is_login(),'content':content,'time':'now'|date('U'),'view':'yes'} %}
+		{% do insert_row_array_table(table_name, rows_sender) %}
+		{# lưu vào người nhận #}
+		{% do update_row_table('users', 'new_mail', is_login()~'.'~receiver.new_mail, 'nick', rwurl(url[1])) %}
+		{% if is_login() not in mail_list_receiver %}
+			{% do update_row_table('users', 'mail_list', is_login()~'.'~receiver.mail_list, 'nick', rwurl(url[1])) %}
+		{% else %}
+			{% do update_row_table('users', 'mail_list', is_login()~'.'~receiver.mail_list|replace({(is_login()~'.'):''}), 'nick', rwurl(url[1])) %}
+		{% endif %}
+		{% set rows_receiver = {'sender_receiver':receiver.nick~'_'~is_login(),'nick':is_login(),'content':content,'time':'now'|date('U'),'view':'no'} %}
+		{% do insert_row_array_table(table_name, rows_receiver) %}
+		{# end lưu #}
+	{% endif %}
+{% endif %}
+{#===END GỬI TIN NHẮN===#}
+<div class="mainblok">
+  <div class="menu">
+    {{block('toolbar')}}
+    <form id="form" method="post" action="">
+      <textarea id="comment-comment" name="msg" rows="4" placeholder="" required=""></textarea></br/>
+      <input style="display:none" type="file" id="f" accept="image/*">
+      <button id="comment-submit" name="submit" value ="send" type="submit" id="submit"> Gửi đi</button>
+      <a id="upload">[ <i class="fa fa-upload" aria-hidden="true"></i> ]</a>
+    </form>
+    </div>
+  </div>
+</div>
+<script src="/textarea-improved3.js" type="text/javascript"></script>
+<script src="/upload-cmt.js" type="text/javascript"></script>
+{% else %}
+<div class="mainblok">
+  <div class="rmenu">{% if is_login() in receiver_blocklist %}Bạn không thể nhắn tin cho người dùng này ngay lúc này!{% else %}Bạn đang chặn tin nhắn từ người dùng này. Hãy mở chặn để tiếp tục cuộc trò chuyện!{% endif %}</div>
+</div>
+{% endif %}{#end kiểm tra#}
+{#===END KIỂM TRA NGƯỜI DÙNG TRONG BLOCKLIST===#}
+{% endif %}
+{#=====D.S TIN NHẮN=====#}
+  {% set data = select_table_where_data(table_name, 'sender_receiver', is_login()~'_'~receiver.nick, 'time', 'desc') %}
+  {% set total = data|length-1 %}
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+    {% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p=get_get('page')|default(1) %}
+  {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  {% if p > page_max %}{% set p = page_max %}{% endif %}
+  {% set st=p*per-per %}
+  {% if total == '0' %}
+    <div class="mainblok"><div class="menu">Danh sách trống</div></div>
+  {% else %}
+    <div class="mainblok">
+  		{% for mail in data|slice(st,per) %}
+  			{% set sr = select_table_row_data('users','nick',mail.nick) %}
+  			{% if sr.id %}
+    <div class="postprofile"{% if loop.last == false %} style="{% if mail.view != 'yes' %}{% do update_row_table(table_name, 'view', 'yes', 'id', mail.id) %} background-color:#ffffc8;{% endif %}border-bottom:1px solid #536162"{% endif %}>
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img src="{{getAvtUser(mail.nick)}}" width="38" height="38" alt="{{sr.name}}" class="imgAvtUser imgAvt-{{mail.nick}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{mail.nick}}">{{maunick(mail.nick)}}</a></div>
+          <div>({{ago(mail.time)}})</div>
+        </div>
+      </div>
+      	<div class="sub"></div>
+        <p>
+          {{bbcode(mail.content)}}
+        </p>
+    </div>
+  			{% endif %}
+  		{% endfor %}
+    </div>{# end div.mainblok #}
+    {{paging(url|join('/')~'?page=',p,page_max)}}
+  {% endif %}
+{#===END D.S TIN NHẮN===#}
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+	<div class="phdr">Gần đây</div>
+	{{block('mail_list')}}
+{% endset %}
+<style>@media screen and (max-width: 600px){ #dorewMail{display:none!important} }</style>
+<div id="dorewMail">
+{{block('w3_third')}}
+</div>
+{#=============================================================================#}
+{% else %}
+{% set w3_main4px_content %}
+	{{block('mail_list')}}
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% endif %}
+
+
+
+
+
+
+
+{#{{block('chatbox')}}#}
+{{block('end')}}
+{#=============================================================================#}
+{% endif %}{#END IF COUNT#}
+{% else %}
+	{{redirect('/index')}}
+{% endif %}

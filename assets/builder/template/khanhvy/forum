@@ -1,0 +1,369 @@
+{% use '_blog' %}
+{% use '_layout' %}
+{% use '_manager' %}
+
+{% from '_functions' import ago,rwurl,paging,checkExtension,size,description,post_prefix %}
+{% from '_users' import maunick,getAvtUser,auto,buariu %}
+{% from '_bbcode' import bbcode,tagPost %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+
+{% set url = get_uri_segments() %}
+{% set act = get_get('act') %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set id_current = url[1]|split('-')[0] %}
+{% set blog = select_table_row_data('blog', 'id', id_current) %}
+{% set news = select_table_row_data('news', 'blogid', id_current) %}
+{% set author = select_table_row_data('users', 'nick', blog.author) %}
+{% set author_blocklist = author.blocklist|split('.') %}
+{% set list_like = blog.like|split('.') %}
+{% if not blog.id %}{{redirect('/category')}}{% endif %}
+{% set cat = select_table_row_data('category', 'id', blog.category) %}
+{% set title = html_decode(blog.title) %}
+{% set description = description(bbcode(blog.content),'150') %}
+{% do update_row_table('blog', 'view', blog.view+1, 'id', id_current) %}
+{# lưu lại người dùng đã xem #}
+{% if is_login() and is_login() not in blog.user_view|split('.') %}
+	{% do update_row_table('blog', 'user_view', blog.user_view~is_login()~'.', 'id', id_current) %}
+{% endif %}
+{# end lưu #}
+{% set uri_manager = '/forum/'~id_current~'-'~blog.slug %}
+
+{{block('head')}}
+	<ul class="breadcrumb" style="z-index:0">
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/"><span itemprop="title"><i class="fa fa-home" aria-hidden="true"></i></span></a></span></li>
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope">{% if news.id %}<a itemprop="url" href="/news/"><span itemprop="title">Bảng tin</span></a>{% else %}<a itemprop="url" href="/category/{{cat.id}}-{{cat.slug}}/"><span itemprop="title">{{cat.name}}</span></a>{% endif %}</span></li>
+      {% if blog.prefix != NULL %}
+      <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category/{{cat.id}}-{{cat.slug}}/{{blog.prefix}}"><span itemprop="title">{{post_prefix(blog.category,'0',blog.prefix)}}</span></a></span></li>
+      {% endif %}
+	</ul>
+{#=============================================================================#}
+{% set list_manager = ['edit','delete','upload-file','add-chap','index'] %}
+{% if (is_login() and blog.author  == is_login() and blog.blocked!='y') and url[1] == id_current~'-'~blog.slug and url[2] in list_manager or user.level >= '120' and url[1] == id_current~'-'~blog.slug and url[2] in list_manager %}
+{% set w3_main4px_content %}
+{#=====QUẢN LÝ BÀI VIẾT=====#}
+{% if url[2] == 'edit' %}
+	{{block('edit_post')}}
+{% elseif url[2] == 'delete' and user.level >= '120' %}
+	{{block('delete_post')}}
+{% elseif url[2] == 'upload-file' %}
+	{{block('upload_file')}}
+{% elseif url[2] == 'add-chap' %}
+	{{block('add_chap')}}
+{#===========MENU===========#}
+{% else %}
+<div class="mainblok">
+  <div class="phdr">Quản lý bài viết</div>
+  <div class="list1"><a href="{{uri_manager}}/edit">Chỉnh sửa bài viết</a></div>
+  <div class="list1"><a href="{{uri_manager}}/upload-file">Tải lên tập tin</a></div>
+  <div class="list1"><a href="{{uri_manager}}/add-chap">Thêm chương/cập nhật</a></div>
+  	{% if user.level >= '120' %}
+  <div class="list1"><a href="{{uri_manager}}/delete">Xoá bài viết</a></div>
+</div>
+	{% endif %}
+{% endif %}
+<div class="mainblok">
+  <div class="menu"><a href="{{uri_manager}}"><i class="fa fa-undo" aria-hidden="true"></i> Quay lại bài viết</a></div>
+</div>
+{#===END QUẢN LÝ BÀI VIẾT===#}
+{% endset %}
+{{block('w3_main4px')}}
+{% else %}
+{#=============================================================================#}
+    <script src="https://unpkg.com/ipfs-http-client@30.1.3/dist/index.js"></script>
+    <script src="https://bundle.run/buffer@5.2.1"></script>
+<style>.video-wrapper{position:relative;padding-bottom:56.25%;height:0;overflow:hidden}.video-wrapper iframe{position:absolute;top:0;left:0;width:100%;height:100%}</style> 
+
+{#===========================================================================================================#}
+{% set w3_twothird_content %}
+<div style="text-align:right;font-size:14px"><a href="/search" title="Tìm kiếm"><button type="button" class="btn btn-sm btn-primary"><i class="fa fa-search" aria-hidden="true"></i> Tìm kiếm</button></a></div>
+<div class="mainblok">
+  <div class="phdr" style="font-weight:bold;">{% if blog.sticked=='y' %}<i class="fa fa-thumb-tack" aria-hidden="true"></i> {% endif %}{% if blog.blocked=='y' %}<i class="fa fa-lock" aria-hidden="true"></i>{% else %}{% if blog.sticked!='y' %}<i class="fa fa-spinner fa-pulse fa-fw"></i>{% endif %}{% endif %} {{title}}</div>
+  <div class="menu">
+    <i class="fa fa-eye" aria-hidden="true"></i> {{blog.view}} lượt xem | <i class="fa fa-pencil-square-o" aria-hidden="true"></i> {{select_table_where_data('cmt', 'blogid', blog.id, 'id', 'asc')|length}} bài đăng
+  </div>
+</div>
+
+{% if is_login() and user.level >= '120' %}
+  {% if act == 'lock' %}
+    {% set result,col,col_val = 'Đóng cửa chủ đề thành công','blocked','y' %}
+  {% elseif get_get('act')=='unlock' %}
+    {% set result,col,col_val = 'Mở cửa chủ đề thành công','blocked','no' %}
+  {% elseif get_get('act')=='pin' %}
+    {% set result,col,col_val = 'Ghim chủ đề thành công','sticked','y' %}
+  {% elseif get_get('act')=='unpin' %}
+    {% set result,col,col_val = 'Gỡ ghim chủ đề thành công','sticked','n' %}
+  {% endif %}
+  {% if get_get('act') in ['lock','unlock','pin','unpin'] %}
+    {% do update_row_table('blog', col, col_val, 'id', id_current) %}
+<div class="mainblok"><div class="gmenu">{{result}}</div></div><script>window.location.href='/forum/{{id_current}}-{{blog.slug}}.html'</script>
+  {% endif %}
+{% endif %}
+{% if is_login() and is_login() not in list_like and act == 'like' and author.nick != is_login() %}
+	{% do update_row_table('blog', 'like', blog.like~is_login()~'.', 'id', id_current) %}
+	{% if author.nick != system_bot %}
+		{% do insert_row_array_table('mail',{'sender_receiver':blog.author~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' vừa bày tỏ cảm xúc trong một bài viết có mặt bạn. [url=/forum/'~id_current~'-'~blog.slug~'.html][XEM BÀI VIẾT][/url]','time':'now'|date('U'),'view':'no'}) %}
+	{% endif %}
+	{{redirect('/forum/'~id_current~'-'~blog.slug~'.html')}}
+{% endif %}
+
+{% set author_point = get_row_count('blog',{'author':blog.author,'operator':'='})|default(0)+get_row_count('cmt',{'author':blog.author,'operator':'='})|default(0)+get_row_count('chap',{'author':blog.author,'operator':'='})|default(0) %}
+
+<div class="mainblok">
+  <div class="title w3-col">
+    <span class="float_right"><b>#TOP</b></span>
+    <div class="s6"><i class="fa fa-clock-o"></i> {{ago(blog.time)}}</div>
+  </div>
+  <div class="postprofile" itemscope="itemscope" itemtype="http://data-vocabulary.org/Person">
+    <div class="postprofileInner">
+      <div class="profileAvatar"><img loading="lazy" src="{{getAvtUser(blog.author)}}" width="38" height="38" alt="{{author.name}}" class="imgAvtUser imgAvt-{{author.nick}}" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="/user/{{blog.author}}">{{maunick(blog.author)}}</a> <span name="online">{% if author.on < ('now'|date('U')-300) %}<font color="red"><i class="fa fa-toggle-off" aria-hidden="true"></i></font>{% else %}<font color="green"><i class="fa fa-toggle-on" aria-hidden="true"></i></font>{% endif %}</span></div>
+        <div>Bài đăng: {{author_point}}</div>
+      </div>
+      <div class="profileMoreInfo">
+        <div>{{buariu(author_point)}}</div>
+      </div>
+    </div>
+  </div>
+{% if (is_login() and blog.author  == is_login() and blog.blocked!='y') or user.level >= '120' %}
+<div class="menu">
+<b><i class="fa fa-wrench" aria-hidden="true"></i> Công cụ:</b> &emsp;&emsp; <a href="{% if news.id %}/news/edit?id={{news.id}}{% else %}{{uri_manager}}/edit{% endif %}"><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Chỉnh sửa</a>
+ / <a href="{{uri_manager}}/upload-file"><i class="fa fa-cloud-upload" aria-hidden="true"></i> Thêm file</a> 
+ {{(blog.chaplist == '1' ? ' / <a href="'~uri_manager~'/add-chap"><i class="fa fa-plus-circle" aria-hidden="true"></i> Thêm chương</a> ' : '')|raw}}
+{% endif %}
+{% if user.level >= '120' %}
+ / <a href="{% if news.id %}/news/delete?id={{news.id}}{% else %}{{uri_manager}}/delete{% endif %}"><i class="fa fa-trash-o" aria-hidden="true"></i> Xoá</a>  / {% if blog.blocked!='y' %}<a href="?act=lock"><i class="fa fa-lock" aria-hidden="true"></i> Đóng thảo luận</a>{% else %}<a href="?act=unlock"><i class="fa fa-unlock" aria-hidden="true"></i> Mở thảo luận</a>{% endif %} / {% if blog.sticked!='y' %}<a href="?act=pin"><i class="fa fa-thumb-tack" aria-hidden="true"></i> Ghim chủ đề</a>{% else %}<a href="?act=unpin"><i class="fa fa-file-text" aria-hidden="true"></i> Gỡ ghim</a>{% endif %}
+{% endif %}
+{% if (is_login() and blog.author  == is_login() and blog.blocked!='y') or user.level >= '120' %}</div>{% endif %}
+  <div class="menu" id="{{auto()|trim|slice(0,5)}}-{{id_current}}">
+    {{bbcode(blog.content)}}
+    {% if is_login() and author.nick not in [system_bot,is_login()] and is_login() not in list_like %}
+    <div style="text-align:right">
+      <div class="sub"></div>
+      <a href="?act=like" class="btn btn-default btn-xs w3-center">Like</a>
+    </div>
+    {% endif %}
+  </div>
+	{% if list_like|length-1 > 0 %}
+  <div class="d-menu">
+    {% for pliked in list_like|slice(0,3) %}
+    	{% set max_l = list_like|length-1 %}
+    	{% if max_l > '3' %}{% set max_l = '3' %}{% endif %}
+    	{% set liked = select_table_row_data('users','nick',pliked) %}
+    	{% if liked.id %}
+    <a href="/user/{{liked.nick}}">{{maunick(liked.nick)}}</a>{% if loop.index != max_l %}, {% endif %} 
+    	{% endif %}
+    {% endfor %}
+    {% if list_like|length-1 > 3 %} và {{list_like|length-4}} người khác{% endif %}
+    thích điều này
+  </div>
+	{% endif %}
+  {#======================================#}
+  {# list chapter #}
+  	{% set list_chap = select_table_where_data('chap', 'box', blog.id)  %}
+	{% set total_chap = list_chap|length-1 %}
+  	{% if total_chap >'0' %}
+  <div class="topmenu"><b>{{(blog.chapTitle == '2' ? '<i class="fa fa-superpowers" aria-hidden="true"></i> Cập nhật gần đây' : '<i class="fa fa-clone" aria-hidden="true"></i> Danh sách chương')|raw}} ({{total_chap}})</b>{% if is_login() == blog.author %}<a data-no-instant href="{{uri_manager}}/add-chap" style="float:right;font-size:14px" title="Viết"><button type="submit" name="submit"><i class="fa fa-plus-circle" aria-hidden="true"></i> Thêm</button></a>{% endif %}</div>
+  <div style="max-height:300px;overflow-y:auto">
+  	{% for chapter in list_chap %}
+    {% if chapter.id and chapter.box %}<div class="list1">{% if blog.chapTitle=='2' %}<b style="color:red"><i class="fa fa-asterisk" aria-hidden="true"></i></b> {% endif %}<a class="linkchuong" href="/view-chap/{{chapter.id}}-{{chapter.slug}}/"> {{chapter.title}}</a></div>{% endif %}
+  	{% endfor %}
+  </div>
+  	{% endif %}
+  {# end list chapter #}
+</div>{# end div.mainblok - từ bài viết chính #}
+
+{#===========================================================================================================#}
+
+{# filelist #}
+{% set list_file = select_table_where_data('file', 'blogid', blog.id,'time','desc')  %}
+{% set total = list_file|length-1 %}
+{% if total >'0' %}
+<div class="mainblok">
+  <div class="phdr dsfile"><b><i class="fa fa-clone" aria-hidden="true"></i> Tập tin đính kèm ({{total}})</b>
+{% if blog.author  == is_login() %}<a data-no-instant href="{{uri_manager}}/upload-file" style="float:right" title="Thêm">
+    <button type="submit" name="submit"><i class="fa fa-plus-circle" aria-hidden="true"></i> Thêm</button></a>{%endif %}
+  </div>
+  <div style="max-height:300px;overflow-y:auto">
+  {% for file in list_file %}
+    {% if file.id and file.blogid %}
+      {% set da_mua = file.mua %}
+      {% set demnguoimua = da_mua|split('.')|length-1 %}
+        <div class="list1">
+         <a href="/view-file/{{file.id}}"> 
+           <table style="table-layout:fixed">
+             <tbody>
+               <tr>
+                 <td rowspan="3" style="padding-right:10px"><i class="fa fa-2x fa-{{checkExtension(file.filename)}}" aria-hidden="true"></i></td>
+               </tr>
+               <tr>
+                 <td style="word-break:break-all;"><i class="fa fa-circle-o-notch" aria-hidden="true"></i> <b>{{file.filename }}</b></td>
+               </tr>
+               <tr>
+                 <td>
+                   <small><i class="fa fa-info-circle" aria-hidden="true"></i> {{size(file.filesize)}} 
+          / Nhóm tệp: {% if file.status == 'public' %}<b>Miễn phí</b>{% else %}
+          <b>Trả phí</b>, Giá: {{file.price|number_format}} xu 
+          {% if demnguoimua > 0 %}/ {{demnguoimua}} đã mua {% endif %}
+          {% endif %}
+                   </small>
+                 </td>
+               </tr>
+             </tbody>
+           </table>
+         </a>
+      </div>
+    {% endif %}
+  {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# end filelist #}
+
+{#===========================================================================================================#}
+
+{# INDEX khocmt #}
+{% if is_login() and blog.blocked!='y' %}
+  {% set sort_cmt = 'asc' %}
+{% else %}
+  {% set sort_cmt = 'asc' %}
+{% endif %}
+{% set list_cmt = select_table_where_data('cmt', 'blogid', blog.id, 'id', sort_cmt)  %}
+{% set totalcmt = list_cmt|length-1 %}
+
+{% set per_cmt = '10' %}
+{% set page_max_cmt = totalcmt//per_cmt %}
+{% if totalcmt//per_cmt != totalcmt/per_cmt %}
+  {% set page_max_cmt = totalcmt//per_cmt+1 %}
+{% endif %}
+{% set p_cmt = get_get('loadCmt') %}
+{% if p_cmt matches '/[a-zA-z]|%/' or p_cmt<1 %}
+  {% set p_cmt = 1 %}
+{% endif %}
+{% if p_cmt > page_max_cmt %}
+  {% set p_cmt = page_max_cmt %}
+{% endif %}
+{% set st_cmt = p_cmt*per_cmt-per_cmt %}
+
+{# cmtlist #}
+{% if is_login() and blog.blocked!='y' and is_login() not in author_blocklist and user.level < '120' or is_login() and blog.blocked!='y' and user.level >= '120' %}
+  {% if request_method()|lower == 'post' %}{% if  get_post('msg')!=null %}
+    {% set data = {"time":"now"|date('U'),"comment":get_post('msg'),"author":is_login()|default('anon'),"blogid":blog.id} %}
+    {% do insert_row_array_table('cmt', data) %}
+    {% do update_row_table('users', 'do', user.do+333, 'nick', is_login()) %}
+    {% do update_row_table('blog', 'update_time', 'now'|date('U'), 'id', id_current) %}
+
+    {# hiện thông báo ra trang chủ #}
+    {% set chatmn_cmt = '@'~is_login()~' Vừa bình luận tại [url=/forum/'~id_current~'#listcmt]'~title~'[/url]' %}
+    {% set chatmn = {"name" :select_table_row_data('system','id',1).bot,"time":"now"|date('U'),"comment":chatmn_cmt} %}
+    {% do insert_row_array_table('chat', chatmn) %}
+	{# thông báo hệ thống #}
+	{% if blog.author not in [system_bot, is_login()] %}
+		{% do insert_row_array_table('mail',{'sender_receiver':blog.author~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' đã bình luận trong một bài viết có mặt bạn. [url=/'~url|join('/')~'][XEM BÀI VIẾT][/url]','time':'now'|date('U'),'view':'no'}) %}
+	{% endif %}
+		{{tagPost(uri_manager,is_login(),get_post('msg'))}}
+    <div class="gmenu">Bình luận thành công</div>
+    {{redirect('/forum/'~id_current~'?loadCmt='~page_max_cmt~'#listcmt')}}
+  {% endif %}{% endif %}
+{% endif %}
+{# endcmt #}
+
+{% if is_login() and blog.blocked=='y' %}
+  <div class="mainblok">
+  	<div class="rmenu">Bạn thông thể tham gia bình luận. Chức năng bình luận của bài viết này đã bị đóng!</div>
+  </div>
+{% endif %}
+
+{% if totalcmt >= '0' and not is_login() %}
+  <div class="mainblok">
+    <div class="gmenu"><i class="fa fa-user" aria-hidden="true"></i> <a href="/login">Đăng nhập</a> một phát, tha hồ bình luận (^3^)</div>
+  </div>
+{% endif %}
+
+{# HIỆN DANH SÁCH cmt #}
+{% if totalcmt != '0' %}
+  <span id="listcmt"></span>
+  {% for cmtBlog in select_table('cmt','*',{'blogid':blog.id},'id',sort_cmt,{'start':st_cmt,'end':per_cmt}) %}
+    {% if cmtBlog.blogid %}
+      {% set ucmt = select_table_row_data('users', 'nick', cmtBlog.author) %}
+  	  {% set uPoint = get_row_count('blog',{'author':cmtBlog.author,'operator':'='})|default(0)+get_row_count('cmt',{'author':cmtBlog.author,'operator':'='})|default(0)+get_row_count('chap',{'author':cmtBlog.author,'operator':'='})|default(0) %}
+  <div class="mainblok"{% if loop.index != 1 %} style="margin-top:0;border-top:0"{% endif %}>
+    <div class="title w3-col">
+      {% if is_login() %}<span class="float_right"><a href="javascript:tag('@{{cmtBlog.author}} ', '')"><small><i class="fa fa-tag" aria-hidden="true"></i></small></a></span>{% endif %}
+      <div class="s6"><i class="fa fa-clock-o"></i> {{ago(cmtBlog.time)}}</div>
+    </div>
+    <div class="postprofile" itemscope="itemscope" itemtype="http://data-vocabulary.org/Person">
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img loading="lazy" src="{{getAvtUser(cmtBlog.author)}}" width="38" height="38" alt="{{ucmt.name}}" class="imgAvtUser imgAvt-{{ucmt.nick}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{cmtBlog.author}}">{{maunick(cmtBlog.author)}}</a> <span name="online">{% if ucmt.on < ('now'|date('U')-300) %}<font color="red"><i class="fa fa-toggle-off" aria-hidden="true"></i></font>{% else %}<font color="green"><i class="fa fa-toggle-on" aria-hidden="true"></i></font>{% endif %}</span></div>
+          <div>Bài đăng: {{uPoint}}</div>
+        </div>
+        <div class="profileMoreInfo">
+          <div>{{buariu(uPoint)}}</div>
+        </div>
+      </div>
+    </div>
+    <div class="menu">
+      {{bbcode(cmtBlog.comment)|raw}}
+    </div>
+  </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+{{paging('forum/'~id_current~'/'~blog.slug~'/?loadCmt=',p_cmt,page_max_cmt)}}
+{# END HIỆN DANH SÁCH cmt #}
+
+{% if is_login() and blog.blocked!='y' and is_login() not in author_blocklist and user.level < '120' or is_login() and blog.blocked!='y' and user.level >= '120' %}
+<div class="mainblok">
+  <div class="menu">
+    {{block('toolbar')}}
+    <form id="form" method="post" action="">
+      <textarea id="comment-comment" name="msg" rows="4" placeholder="" required=""></textarea></br/>
+      <input style="display:none" type="file" id="f" accept="image/*">
+      <input style="display:none" type="file" id="f2">
+      <button id="comment-submit" name="submit" type="submit" id="submit"> Gửi bình luận</button>
+      <a id="upload">[ <i class="fa fa-upload" aria-hidden="true"></i> ]</a>
+      <a id="upload2">[ <i class="fa fa-cube" aria-hidden="true"></i> ]</a>
+    </form>
+    </div>
+  </div>
+</div>
+<script src="/textarea-improved3.js" type="text/javascript"></script>
+<script src="/upload-cmt.js" type="text/javascript"></script>
+{% elseif is_login() and is_login() in author_blocklist and user.level < '120' %}
+<div class="mainblok">
+  <div class="rmenu">Bạn không thể tham gia thảo luận trong chủ đề này!</div>
+</div>
+{% endif %} 
+
+{% endset %}
+{{block('w3_twothird')}}
+
+{#===========================================================================================================#}
+
+{% set w3_third_content %}
+  {% set list_user_view = blog.user_view|split('.') %}
+  {% set total_user_view = list_user_view|length-1 %}
+{#
+{% if total_user_view > '0' %}
+<div class="mainblok">
+  <div class="phdr">Người dùng đã xem ({{total_user_view}})</div>
+  <div style="max-height:350px;overflow-y:auto">
+  	<div class="menu" style="font-size:14px">{% for uv in list_user_view %}{% set duv = select_table_row_data('users','nick',uv) %}{% if duv.id %}<a href="/user/{{uv}}" title="{{duv.name}}">{{maunick(uv)}}</a>{% if loop.last ==  false %}, {% endif %}{% endif %}{% endfor %}</div>
+  </div>
+</div>
+{% endif %}
+#}
+<div class="mainblok">
+  <div class="phdr">Chủ đề tương tự</div>
+  {% for topic in search_key_in_table('blog', 'title', title, 5) %}
+  <div class="list1"><a href="/forum/{{topic.id}}-{{topic.slug}}.html"> {{html_decode(topic.title)}}</a></div>
+  {% endfor %}
+</div>
+{% endset %}
+{{block('w3_third')}}
+{#=============================================================================#}
+{% endif %}{# END MANAGER #}
+{{block('end')}}

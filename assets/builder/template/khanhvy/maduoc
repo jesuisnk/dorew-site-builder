@@ -1,0 +1,25 @@
+{% use '_layout' %}
+{{block('head')}}
+{% set uri = get_uri_segments() %}
+{% set uri_1 = uri[1] %}
+{% set uri_2 = uri[2] %}
+{% if is_login() %}
+{% if uri_1 == 'my' %}
+  <div class="phdr">Ma dược của bạn</div>
+  {% set data = select_table_where_data('user_maduoc', 'nick', is_login()) %}
+    {% for md in data %}
+      {% if md.maduoc == "tupham" %}
+        <div class="list1">Danh sách {{md.ds}}: <span class="{{md.maduoc}}">Tù phạm</span></div>
+      {% endif %}
+    {% endfor %}
+{% endif %}
+
+
+
+
+<div class="phdr">Ma dược</div>
+<div class="list1"><a href="/maduoc/my">Ma dược của bạn</a></div>
+
+
+{% endif %}
+{{block('end')}}

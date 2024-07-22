@@ -1,0 +1,11 @@
+{% from '_users' import auto_ban %}
+{% if is_login() %}
+  {% set user = select_table_row_data('users', 'nick', is_login()) %}
+  {# sử dụng insert_row_array_table(table_name, array_row) #}
+  {% if get_post('msg') not in ['',' ',null,'\r\n','[br]'] and user.level >= '0' %}
+    {% set array_row = {'name':is_login(),'time':'now'|date('U'),'comment':get_post('msg')} %}
+    {% do insert_row_array_table('chat', array_row) %}
+	{{auto_ban('msg')}}
+	{% do update_row_table('users', 'do', (user.do + random(50.200)), 'nick', is_login()) %}
+  {% endif %}
+{% endif %}

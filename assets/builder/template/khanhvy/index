@@ -1,0 +1,47 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{{block('head')}}
+{% set w3_main_content %}
+{% include '_online' %}
+{% endset %}
+{{block('w3_main')}}
+
+{% if is_login() %}
+{#===========================#}
+{% set w3_twothird_content %}
+{% include 'chat_home' %}
+{{block('sticked_topic')}}
+{% endset %}
+{{block('w3_twothird')}}
+
+{% set w3_third_content %}
+{{block('news_slide')}}
+<div class="mainblok">
+{% include 'forum_list_show' %}
+</div>
+{% endset %}
+{{block('w3_third')}}
+{#===========================#}
+{% else %}
+{#===========================#}
+{% set w3_twothird_content %}
+<div class="mainblok">
+{{block('new_blog')}}
+</div>
+{% endset %}
+{{block('w3_twothird')}}
+
+{% set w3_third_content %}
+{{block('news_slide')}}
+<div class="mainblok">
+{{block('category')}}
+</div>
+{% endset %}
+{{block('w3_third')}}
+{#===========================#}
+{% endif %}
+
+{{block('end')}}

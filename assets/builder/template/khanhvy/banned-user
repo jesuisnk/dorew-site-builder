@@ -1,0 +1,39 @@
+{% use '_layout' %}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+{{block('head')}}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set ban = user.time_ban|split(' | ') %}
+{% set time_ban = ban[0] %}
+{% set reason = ban[1] %}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> <b>Có lỗi xảy ra!</b></div>
+  <style>h2{margin:0;padding:0;font-size:20px}</style>
+  <div class="menu" style="background:url(https://i.imgur.com/Idkmz45.png);text-align:center;background-repeat:no-repeat;background-size:100% 100%;width:100%;height:350px"></div>
+  <div class="menu" style="text-align:center">
+    <h2>Bạn không thể truy cập Dorew vào lúc này!</h2>
+    {% if ban|length >= '2' %}
+    	{% if time_ban > 'now'|date('U') %}
+  </div>
+</div>
+<div class="mainblok">
+  <div class="phdr">Vì sao tôi lại bị như vậy?</div>
+  <div class="menu">
+    <div style="font-size:16px">
+      <p>Lý do: <b style="color:orange">{{reason}}</b></p>
+      <p>Bạn có thể quay lại sau: <br/><date>0</date> / <time>0 : 0 : 0</time></p>
+    </div>
+    <script>
+      var UnixTimeInFuture = {{time_ban*1000}};
+	</script>
+  	<script src="/countdown.js"></script>
+    	{% else %}
+    		{% do update_row_table('users', 'level', '0', 'nick', is_login()) %}
+    		{{redirect('/index')}}
+    	{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{{block('end')}}

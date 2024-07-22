@@ -1,0 +1,110 @@
+{# Các hàm thao tác với bảng `users` #}
+
+{# làm việc với cookie #}
+{% macro auto() %}{% for i in 1..30%}{{random('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')}}{% endfor %}{% endmacro %}
+
+{#=============================================================================#}
+
+{# mật khẩu #}
+{% macro e_pass(str) %}{{str|replace({'0':'9','1':'8','2':'7','3':'6','4':'5','9':'0','8':'1','7':'2','6':'3','5':'4','a':'z',b:'y','c':'xx','d':'w','e':'v','f':'u','g':'t','h':'s','i':'r','j':'q','k':'p','l':'o','m':'n','z':'a',y:'b','x':'c','w':'d','v':'e','u':'f','t':'g','s':'h','r':'i','q':'j','p':'k','o':'l','n':'m','A':'Z',B:'Y','C':'XX','D':'W','E':'V','F':'U','G':'T','H':'S','I':'R','J':'Q','K':'P','L':'O','M':'N','Z':'A',Y:'B','X':'C','W':'D','V':'E','U':'F','T':'G','S':'H','R':'I','Q':'J','P':'K','O':'L','N':'M'})}}{% endmacro %}
+
+{#=============================================================================#}
+
+{# màu nick #}
+{% macro maunick(tenuser) %}{% spaceless %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set user = select_table_row_data('users', 'nick', tenuser) %}
+{% set rank_best = query_select_table('play_dragon', '*', 'WHERE `nick` != "'~system_bot~'" ORDER BY rank DESC LIMIT 1')|last %}
+{% set farm_best = query_select_table('users', '*', 'WHERE `nick` != "'~system_bot~'" ORDER BY farm DESC LIMIT 1')|last %}
+{% if user.level  < '0'%} {#người bị cấm#}
+  {% set ban = 's' %}
+  {% set color = 'LightGray' %}
+{% elseif user.level  <= '80'%} {#người bình thường#}
+  {% set color = 'DarkSlateGrey' %}
+{% elseif user.level <= '90'  %} {#người đăng bài#}
+  {% set color = 'RoyalBlue' %}
+{% elseif user.level <= '100' %} {#mod#}
+  {% set color = 'ForestGreen' %}
+{% elseif user.level <= '110' %} {#smod#}
+  {% set color = 'RebeccaPurple' %}
+{% elseif user.level <= '120' %} {#admin#}
+  {% if user.level == '120' %}{% set tick = '6666ff' %}{% endif %}
+  {% set class = 'lv-120' %}
+{% elseif user.level <='126' %} {#sáng viên#}
+  {% set tick = '6666ff' %}
+  {% set class = 'lv-126' %}
+{% elseif user.level >'126' %} {#sáng viên max#}
+  {% set tick = 'ff3300' %}
+  {% set class = 'lv-127' %}
+{% endif %}
+  {% set user_style = user.style|trim|split('.') %}
+  {% if user_style[0] != '0' %}{% set shadow = ';text-shadow:0 0 0.7em #'~user_style[0] %}{% endif %}
+  {% if user_style[1] != '0' %}{% set color = ';color:#'~user_style[1] %}{% endif %}
+  {% endspaceless %}
+  {% if rank_best.nick == user.nick and user.vip_exp < 300 %}<img src="https://dorew-site.github.io/assets/rank/War/Top/Champion.png" alt="Dragon" style="width:15px;height:15px"/>{% elseif rank_best.nick == user.nick and user.vip_exp >= 300 %}<img src="https://dorew-site.github.io/assets/rank/War/Top/VIP.png" alt="Farm"/> {% elseif farm_best.nick == user.nick %}<img src="https://dorew-site.github.io/assets/rank/War/Top/PRO.png" alt="Farm"/> {% endif %}
+  {% if user_style[0] != '0' and user_style[1] != '0' %}
+  <span style="border-radius:5px;display:inline-block;margin:1px{{shadow}}{{color}};font-weight:700">{{user.name}}</span>
+  {% elseif user_style[0] == '0' and user_style[1] != '0' %}
+  <span style="border-radius:5px;display:inline-block;margin:1px{{color}};font-weight:700">{{user.name}}</span>
+  {% elseif user_style[0] != '0' and user_style[1] == '0' %}
+  <span style="border-radius:5px;display:inline-block;margin:1px{{shadow}};font-weight:700">{% if s and color %}<s><font color="{{color}}">{{user.name}}</font></s>{% elseif not s and color %}<font color="{{color}}">{{user.name}}</font>{% elseif class and not s and not color %}<span class="{{class}}">{{user.name}}</span>{% endif %}</span>
+  {% else %}
+  <span style="font-weight:700">
+  {% if ban and color %}<s><font color="{{color}}">{{user.name}}</font></s>{% elseif not ban and color %}<font color="{{color}}">{{user.name}}</font>{% elseif class and not ban and not color %}<span class="{{class}}">{{user.name}}</span>{% endif %}
+  </span>
+  {% endif %}{#{% if tick %} <i class="fa fa-check-circle" style="color:#{{tick}};font-size:15px" aria-hidden="true"></i>{% endif %}#}
+{% endmacro %}
+
+{#=============================================================================#}
+
+{# ảnh bìa #}
+{% macro getCoverUser(tenuser) %}{% set user = select_table_row_data('users', 'nick', tenuser) %}{% set cover =  user.cover|default(8) %}{% if cover in 1..18 %}https://dorew-site.github.io/assets/cover/{{cover}}.jpg{% else %}{{cover}}{% endif %}{% endmacro %}
+
+{# ảnh đại diện #}
+{% macro getAvtUser(tenuser) %}{% set user = select_table_row_data('users', 'nick', tenuser) %}{% set avatar0 =  user.avt|default(15) %}{% set userlv = user.level %}{% if avatar0 > '0' and avatar0 < '30' %} {% if avatar0 == '1' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/badger.png' %}{% elseif avatar0 == '2' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/bear.png' %}{% elseif avatar0 == '3' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/bull.png' %}{% elseif avatar0 == '4' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/camel.png' %}{% elseif avatar0 == '5' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/cat.png' %}{% elseif avatar0 == '6' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/dog.png' %}{% elseif avatar0 == '7' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/dolphin.png' %}{% elseif avatar0 == '8' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/duck.png' %}{% elseif avatar0 == '9' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/hamster.png' %}{% elseif avatar0 == '10' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/hippo.png' %}{% elseif avatar0 == '11' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/kangaroo.png' %}{% elseif avatar0 == '12' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/koala.png' %}{% elseif avatar0 == '13' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/lama.png' %}{% elseif avatar0 == '14' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/monkey.png' %}{% elseif avatar0 == '15' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/moose.png' %}{% elseif avatar0 == '16' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/mouse.png' %}{% elseif avatar0 == '17' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/owl.png' %}{% elseif avatar0 == '18' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/penguin.png' %}{% elseif avatar0 == '19' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/pig.png' %}{% elseif avatar0 == '20' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/rabbit.png' %}{% elseif avatar0 == '21' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/raven.png' %}{% elseif avatar0 == '22' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/rooster.png' %}{% elseif avatar0 == '23' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/seal.png' %}{% elseif avatar0 == '24' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/sheep.png' %}{% elseif avatar0 == '25' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/snake.png' %}{% elseif avatar0 == '26' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/turtle.png' %}{% elseif avatar0 == '27' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/unicorn.png' %}{% elseif avatar0 == '28' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/vulture.png' %}{% elseif avatar0 == '29' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/zebra.png' %}{% endif %}{% else %}{% set avatar0 = avatar0|replace({'.jpg': 'b.jpg', '.png': 'b.png'}) %}{% endif %}{% if userlv<'0' %}https://i.imgur.com/COuyZhV.jpg{% else %}{{avatar0}}{% endif %}{% endmacro %}
+
+{% macro showAvtUser(avatar0) %}{% if avatar0 == '1' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/badger.png' %}{% elseif avatar0 == '2' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/bear.png' %}{% elseif avatar0 == '3' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/bull.png' %}{% elseif avatar0 == '4' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/camel.png' %}{% elseif avatar0 == '5' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/cat.png' %}{% elseif avatar0 == '6' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/dog.png' %}{% elseif avatar0 == '7' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/dolphin.png' %}{% elseif avatar0 == '8' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/duck.png' %}{% elseif avatar0 == '9' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/hamster.png' %}{% elseif avatar0 == '10' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/hippo.png' %}{% elseif avatar0 == '11' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/kangaroo.png' %}{% elseif avatar0 == '12' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/koala.png' %}{% elseif avatar0 == '13' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/lama.png' %}{% elseif avatar0 == '14' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/monkey.png' %}{% elseif avatar0 == '15' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/moose.png' %}
+{% elseif avatar0 == '16' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/mouse.png' %}{% elseif avatar0 == '17' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/owl.png' %}{% elseif avatar0 == '18' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/penguin.png' %}{% elseif avatar0 == '19' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/pig.png' %}{% elseif avatar0 == '20' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/rabbit.png' %}{% elseif avatar0 == '21' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/raven.png' %}{% elseif avatar0 == '22' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/rooster.png' %}{% elseif avatar0 == '23' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/seal.png' %}{% elseif avatar0 == '24' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/sheep.png' %}
+{% elseif avatar0 == '25' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/snake.png' %}{% elseif avatar0 == '26' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/turtle.png' %}{% elseif avatar0 == '27' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/unicorn.png' %}{% elseif avatar0 == '28' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/vulture.png' %}{% elseif avatar0 == '29' %}{% set avatar0 = 'https://moleys.github.io/assets/avatar/zebra.png' %}{% endif %}{{avatar0}}
+{% endmacro %}
+
+{#=============================================================================#}
+
+{# level trong /forum #}
+{% macro buariu(current_point) %}{% set current_point = current_point|default(0) %}{% set list = ['9','14','19','24','29','39','49','69','89','99','109','119','129','139','149','159','169','179','189','199','209','219','229','239','249','259','269','279','289','299','309','319','329','339','349','359','369','379','389','399','409','419','429','439','449','459','469','479','489','499','699','799','999','1399','1599','1799','2199','2599','2899','3199','3699','4099','4599','4999','5599','6099','6599','7199','7899','8599'] %}{% set level %}{% for point in list %}{% set location = loop.index %}{% if current_point >= '8599' %}{% set lv = '70' %}{% elseif current_point <= point %}{% set lv = location %}{% endif %}{% if lv %}{{lv}} @ {% endif %}{% endfor %}{% endset %}<img width="40px" src="https://cdn-static-nivx7f94b-moleys.vercel.app/assets/images/icon/lv/{{level|split(' @ ')[0]|default(1)}}.png"/>{% endmacro %}
+
+{#
+{% macro buariu_name(current_point) %}{% set current_point = current_point|default(0) %}{% set list = ['9','19','29','39','49','59','69','79','89','99','109','119','129','139','149','159','169','179','189','199','209','219','229','239','249','259','269','279','289','299','309','319','329','339','349','359','369','379','389','399','409','419','429','439','449','459','469','479','489','499'] %}{% set level %}{% for point in list %}{% set location = loop.index %}{% if current_point >= '10600' %}{% set lv = '85' %}{% elseif current_point <= point %}{% set lv = location %}{% endif %}{% if lv %}{{lv}} @ {% endif %}{% endfor %}{% endset %}
+
+{% set cr_level =  level|split(' @ ')[0]|default(1) -1 %}
+{% set values = 'Tân binh 1', 'Tân binh 2', 'Binh nhì 1', 'Binh nhì 2', 'Binh nhì 3', 'Binh nhì 4', 'Binh nhật 1', 'Binh nhất 2', 'Binh nhất 3', 'Binh nhất 4', 'Trung sỹ 1', 'Trung sỹ 2', 'Trung sỹ 3', 'Trung sỹ 4', 'Trung sỹ chỉ huy', 'Thượng sỹ 1', 'Thượng sỹ 2', 'Thượng sỹ 3', 'Thượng sỹ 4', 'Thượng sỹ chỉ huy', 'Thiếu úy 1', 'Thiếu úy 2', 'Thiếu úy 3', 'Thiếu úy 4', 'Thiếu úy chỉ huy', 'Trung úy 1', 'Trung úy 2', 'Trung úy 3', 'Trung úy 4', 'Trung úy chỉ huy', 'Đại úy 1', 'Đại úy 2', 'Đại úy 3', 'Đại úy 4', 'Đại úy chỉ huy', 'Thiếu tá 1', 'Thiếu tá 2', 'Thiếu tá 3', 'Thiếu tá 4', 'Thiếu tá chỉ huy', 'Trung tá 1', 'Trung tá 2', 'Trung tá 3 ', 'Trung tá 4', 'Trung tá chỉ huy', 'Đại tá 1', 'Đại tá 2', 'Đại tá 3', 'Đại tá 4', 'Đại tá chỉ huy', 'Thiếu tướng 1 ', 'Thiếu tướng 2', 'Thiếu tướng 3', 'Thiếu tướng chỉ huy', 'Trung tướng 1', 'Trung tướng 2', 'Trung tướng 3', 'Trung tướng chỉ huy', 'Thượng tướng 1', 'Thượng tướng 2', 'Đại tướng 1', 'Đại tướng 2', 'Đại tướng 3', 'Đại tướng 4', 'Đại tướng 5 ', 'Tổng tư lệnh 1', 'Tổng tư lệnh 2', 'Tổng tư lệnh 3', 'Nguyên soái', 'Thống tướng lục quân', 'Morrigan', 'Odin', 'Mars', 'Athena', 'Horus', 'Indra', 'Guan Yu', 'Manthus', 'Artaius', 'Ares', 'Apache', 'Spartan', 'Maori', 'Vityaz', 'Hussar' %}
+
+{{values[cr_level]}}
+
+{% endmacro %}
+#}
+
+{# ['9','19','29','39','49','59','69','79','89','99','109','119','129','139','149','159','169','179','189','199','209','219','229','239','249','259','269','279','289','299','309','319','329','339','349','359','369','379','389','399','409','419','429','439','449','459','469','479','489','499','699','799','999','1399','1599','1799','2199','2599','2899','3199','3699','4099','4599','4999','5599','6099','6599','7199','7899','8599']
+{% macro buariu(current_point) %}{% set current_point = current_point|default(0) %}{% set list = ['19','49','99','149','199','249','299','349','399','499','699','999','1399','1799','2299','2899','3699','4599','5599','6699','7899','9199','10599'] %}{% set level %}{% for point in list %}{% set location = loop.index %}{% if current_point >= '10600' %}{% set lv = '24' %}{% elseif current_point <= point %}{% set lv = location %}{% endif %}{% if lv %}{{lv}} @ {% endif %}{% endfor %}{% endset %}<img src="https://dorew-site.github.io/assets/level/buariu/{{level|split(' @ ')[0]|default(1)}}.gif"/>{% endmacro %} #}
+
+{#=============================================================================#}
+  
+{# khoá nick khi nói bậy #}
+{% macro auto_ban(post) %}
+    {% set user = select_table_row_data('users', 'nick', is_login()) %}
+	{% set system_bot = select_table_row_data('system','id',1).bot %}
+	{% if get_post(post)|length >= '3' and get_post(post)|lower not in [' ',null] and is_login() %}
+		{% set user_content = get_post(post)|lower %}
+		{% set obscene_words = 'bắc kỳ|bắc kì|nam kỳ|nam kì|trung kỳ|trung kì|ba que|ba sọc|việt cộng|trung cộng|rồ mẽo|rồ trung|cặc|buồi|lồn|loz|vú to|địt|đjt|djt|đụ|mẹ mày|cha mày|thằng chó|đầu khấc|vãi cứt|vãi kứt|má mày|bố mày|ông nội mày|tổ sư mày|tổ sư nhà|tiên sư bố nhà|nứng|móc cua|con đĩ|ngu học|đéo|súc vật|làm bitch|fuck|đậu má|bà già mày|bà già nhà mày|mày bại não|bot bại não|thằng bại não|óc vật|óc chó|óc tuất' %}
+		{% if user_content|preg_match('/'~obscene_words~'/') %}
+			{% if user.karma > '50' %}
+				{% do update_row_table('users', 'level', '-1', 'nick', is_login()) %}
+				{% set array_row = {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' đã bị bay màu vì tội ăn nói tục tĩu ko xin phép @'~system_bot~' !'} %}
+    			{% do insert_row_array_table('chat', array_row) %}
+			{% else %}
+				{% do update_row_table('users', 'xu', (user.xu - 500), 'nick', is_login()) %}
+				{% do update_row_table('users', 'karma', (user.karma + 1), 'nick', is_login()) %}
+			{% endif %}
+		{% endif %}
+	{% endif %}
+{% endmacro %}

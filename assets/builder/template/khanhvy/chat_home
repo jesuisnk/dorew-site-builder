@@ -1,0 +1,175 @@
+{% use '_layout' %}
+
+{% set idNow = get_table_count('chat') %}
+
+{% if is_login() %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-weixin" aria-hidden="true"></i> Trò chuyện/ <i class="fa fa-clock-o"></i> <span id="TimeNow"></span></div>
+    <div class="gmenu"><i class="fa fa-question-circle"></i> Nếu xảy ra lỗi khi Chat, hãy vui lòng <a href="/">Refresh</a> lại trang</div>
+  {% set token = random(100000) %}
+  <div class="menu" id="chat-place">
+    {{block('toolbar')}}
+      <form id="form" action="" method="POST" name="form">
+        <textarea type= "text" id="postText" name="msg" rows="3"></textarea><br/>
+        <button name="submit" type="submit" id="submit"> Chat</button> 
+        <a id="upload">[ <i class="fa fa-upload" aria-hidden="true"></i> ]</a>
+        <a id="upload2">[ <i class="fa fa-cube" aria-hidden="true"></i> ]</a>
+        <a href="/users/smile" title="Biểu tượng vui">[Smile]</a>
+        <input style="display:none" type="file" id="f" accept="image/*">
+        <input style="display:none" type="file" id="f2">
+        <input type="hidden" name="token" value="{{token}}"/>
+      </form>
+    </div>
+  </div>
+
+<style>@media (max-width:599px){.overflow-chatbox{overflow-y:scroll;max-height:700px}}</style>
+<div class="overflow-chatbox">
+  	<div id="alert"></div>
+  	<div id="postText"></div>
+  	<div id="idChat"></div>
+	<center>
+  		<div class="pagination" id="phan-trang"></div>
+	</center>
+</div>
+</div>
+
+<script src="/app.js.get?name=time-now" type="text/javascript"></script>
+<script type="text/javascript">
+  {# giải thích cách hoạt động của cái chat này - éo ghi  lại sao này éo nhớ nổi
+1.   load all chat  ở  chatlist
+2. lấy tổng ID chat hiện tại  - totalChat
+3. Auto refesh kiểm tra tổng số chat hiện tại - nowChat - fetch ở chat_count
+4. Nếu nowChat lớn hơn totalChat thì thêm các chat mới - từ chat_ele
+5. xóa phần tử chat cuối cùng
+
+A. Ưu điểm của chat: có thể xem được video mới, có thể copy được nội dung chat trên điện thoại
+B. Bug đã biết:  chat nhanh quá thì bị cập nhật sai =))
+
+Dai 2-2-2022 ~ code từ mùng 1 đến mùng 2 Tết
+ #}
+var totalChat = "{{idNow}}";
+var pageID = 1;
+var chatbox = "../chat_list";
+
+loadcontent = '<div class="list1">Đang tải dữ liệu <i class="fa fa-spin fa-hourglass-half"></i></div>', $(document).ready(function() {
+    $("#idChat").html(loadcontent), $.get(chatbox, function(t) {
+        $("#idChat").html(t).hide().slideDown("slow")
+    });
+    var a = $("#form"),
+        e = $("#submit"),
+        i = $("#alert"),
+        n = $("#postText");
+    a.on("submit", function(t) {
+        return t.preventDefault(), "" == n ? (i.show(), i.text("Báº¡n chÆ°a nháº­p ná»™i dung !!!"), $("#postText").focus(), !1) : void $.ajax({
+            url: "../chat_send",
+            type: "POST",
+            timeout: 5e3,
+            dataType: "html",
+            data: a.serialize(),
+            beforeSend: function() {
+                i.fadeOut(), e.html('Đang gửi <i class="fa fa-spinner fa-spin fa-fw"></i>')
+            },
+            success: function(t) {
+                a.trigger("reset"), $("#postText").focus(), $("#postText").val(""), e.html('<i class="fa fa-check" aria-hidden="true"></i> Chat')
+            },
+            error: function(t) {
+                console.log(t)
+            }
+        })
+    })
+});
+
+async function gogoChat() {
+    reload_chat = setInterval(async function() {
+        fetch("/chat_count").then(t => t.json()).then(t => {
+          if(t-a>3){
+            window.location.href = "/";
+          }
+          
+            for (var a = t; a > totalChat;) {
+                totalChat++;
+                var m = "../chat_ele?chatID=" + totalChat;
+                $.get(m, function(t) {
+                    $("#idChat").prepend(t), $("#idChat .list1:last").remove(), phanTrangChat(totalChat, pageID)
+                })
+            }
+        })
+    }, 4e3)
+}
+
+function phanTrangChat(totalChat, pageID) {
+    var tongPage = 1;
+    if (totalChat % 10 > 0) {
+        tongPage = Math.floor(totalChat / 10) + 1;
+    } else {
+        tongPage = Math.floor(totalChat / 10);
+    }
+
+    console.log('Tong chat' + totalChat);
+    console.log('Tong page ' + tongPage);
+    $("#phan-trang").empty();
+    var pageIDm1 = pageID - 1;
+    var pageIDm2 = pageID - 2;
+    var pageIDp1 = Number(pageID) + 1;
+    var pageIDp2 = Number(pageID) + 2;
+
+    if (pageID > 1) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDm1 + ')" >«</a>');
+    }
+    if (pageID > 3) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',1)" >1</a>');
+    }
+    if (pageID > 4) {
+        $('#phan-trang').append('...');
+    }
+    if (pageID > 2) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDm2 + ')" >' + pageIDm2 + '</a>');
+    }
+    if (pageID > 1) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDm1 + ')" >' + pageIDm1 + '</a>');
+    }
+    $('#phan-trang').append('<span class="current"><b>' + pageID + '</b></span>');
+    if (pageID < tongPage - 1) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDp1 + ')" >' + pageIDp1 + '</a>');
+    }
+    if (pageID < tongPage - 2) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDp2 + ') ">' + pageIDp2 + '</a>');
+    }
+    if (pageID < tongPage - 3)
+        $('#phan-trang').append('...');
+
+    if (pageID < tongPage) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + tongPage + ')" >' + tongPage + '</a>');
+    }
+    if (pageID < tongPage) {
+        $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat + ',' + pageIDp1 + ')" >»</a>');
+        $('#phan-trang').append('<br/><div style="margin-top:3px;margin-bottom:10px"><input style="padding:0px 0px 0px 0px; margin-right:15px; width:60px" type="number" id="ano" name="page" min="1" max="' + tongPage + '"><input type="submit" class="pagenav" onclick="getPage(' + totalChat + ')" value="Go"></div>');
+    }
+
+}
+
+function getPage(totalChat) {
+    loadTrang(totalChat, $("#ano").val());
+}
+
+function loadTrang(totalChat, pageID) {
+    $("#idChat").empty();
+
+    var chatli = "../chat_list?page=" + pageID;
+    $.get(chatli, function(t) {
+        $("#idChat").append(t);
+    });
+
+    document
+        .getElementById("chat-place")
+        .scrollIntoView();
+    phanTrangChat(totalChat, pageID);
+}
+
+gogoChat();
+phanTrangChat(totalChat, pageID);
+</script>
+<script src="/app.js.get?name=imgur&a=upload&f=f" type="text/javascript"></script>
+<script src="/app.js.get?name=nft&a=upload2&f=f2" type="text/javascript"></script>
+<script src="/app.js.get?name=improved&textarea=postText" type="text/javascript"></script>
+{% endif %}

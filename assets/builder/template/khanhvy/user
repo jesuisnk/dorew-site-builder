@@ -1,0 +1,494 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% use '_user_game' %}
+
+{% from '_functions' import ago,rwurl,paging %}
+{% from '_users' import maunick,getAvtUser,getCoverUser,auto,showAvtUser,e_pass %}
+{% from '_bbcode' import bbcode %}
+{% from 'play_dragon' import rank,tienhoa %}
+
+{% set url = get_uri_segments() %}
+{% set act = get_get('act') %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set rank_best = query_select_table('play_dragon', '*', 'WHERE `nick` != "'~system_bot~'" ORDER BY rank DESC LIMIT 1')|last %}
+{% if is_login() %}
+{% set title = 'Trang cá nhân' %}
+{{block('head')}}
+{% set my =  select_table_row_data('users','nick',is_login()) %}
+{% set my_blocklist = my.blocklist|split('.') %}
+{% if url[1] not in ['avatar','cover','info','change.password','change.blocklist'] %}
+{#=============================================================================#}
+{% set user = select_table_row_data('users','nick',rwurl(url[1])) %}
+{% set user_blocklist = user.blocklist|split('.') %}
+{% set relationship = user.relationship %}
+{% if not user.id %}{% set user = my %}{% endif %}
+{% set user_dragon = select_table_row_data('play_dragon', 'nick', user.nick) %}
+
+{% if user.level >= 120 %}<style>.tick-admin{margin-left:66px}@media(min-width:992px){.tick-admin{margin-left:96px}}@media(max-width:991px){.tick-admin{margin-left:90px}}@media(max-width:480px){.tick-admin{margin-left:66px}}</style>{% endif %}
+{% if user.level in 120..126 %}
+	{% set tick = '6666ff' %}
+{% elseif user.level >= 127 %}
+	{% set tick = 'ff3300' %}
+{% endif %}
+{% set tick_admin %}{% if tick %}<div class="tick-admin"><i class="fa fa-check-circle" style="color:#{{tick}};font-size:15px;border-radius:50%;border:2px solid #fff;background:#fff" aria-hidden="true"></i></div>{% endif %}{% endset %}
+
+{% set w3_twothird_content %}
+<div class="mainblok"{% if url[2] == 'act' %} style="border-bottom-left-radius:10px;border-bottom-right-radius:10px"{% endif %}>
+<div class="profileCard"{% if url[2] == 'act' %} style="border-bottom-left-radius:10px;border-bottom-right-radius:10px"{% endif %}>
+  <div class="profileCover" style="background-image:url('{{getCoverUser(user.nick)}}')">
+    {% if my.nick == user.nick %}
+    <div class="changeCoverButton"><a href="/user/cover"><i class="fa fa-camera fa-lg"></i><span class="changeText">Đổi ảnh bìa</span></a></div>
+    {% endif %}
+  </div>
+  <div class="profileInfo">
+    <div class="profileName"><b>{{user.name}}</b></div>
+    <div style="font-weight:300;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{user.status}}</div>
+  </div>
+  {% if my.nick == user.nick %}
+  <a href="/user/avatar"><div class="profileAvatar" style="background-image: url('{{getAvtUser(user.nick)}}')">{{tick_admin|raw}}</div></a>
+  {% else %}
+  <div class="profileAvatar" style="background-image: url('{{getAvtUser(user.nick)}}')">{{tick_admin|raw}}</div>
+  {% endif %}
+  <div class="profileMenu menu"{% if url[2] == 'act' %} style="border-bottom-left-radius:10px;border-bottom-right-radius:10px"{% endif %}>
+    <ul class="nav nav-tabs">
+      <li{% if url[2] != 'act' %} class="active"{% endif %}><a href="/user/{{user.nick}}">Trang cá nhân</a></li>
+      <li{% if url[2] == 'act' %} class="active"{% endif %}><a href="/user/{{user.nick}}/act">Hoạt động</a></li>
+      {% if my.nick != user.nick %}  
+      <li><a href="/mail/{{user.nick}}">Tin nhắn</a></li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+</div>
+
+  {% if url[2] == 'act' %}
+  {% if select_table_where_data('blog', 'author', user.nick)|length|default(1) == '1' and select_table_where_data('cmt', 'author', user.nick)|length|default(1) == '1' %}
+<div class="mainblok" style="border-top-left-radius:10px;border-top-right-radius:10px">
+  <div class="phdr" style="border-top-left-radius:10px;border-top-right-radius:10px">Hoạt động gần đây</div>
+  <div class="menu">tôi chưa có bất kỳ hoạt động nào</div>
+</div>
+  {% else %}
+  	{% set array = [] %}
+  	{% for blog in select_table_where_data('blog', 'author', user.nick,'time','desc') %}
+		{% if blog.id %}
+			{% set get_blog = {'blogid':blog.id,'content':blog.content,'time':blog.time} %}
+			{% set array = array|merge({(blog.time):get_blog}) %}
+		{% endif %}
+  	{% endfor %}
+  	{% for cmt in select_table_where_data('cmt', 'author', user.nick,'time','desc') %}
+		{% if cmt.id %}
+			{% set get_cmt = {'blogid':cmt.blogid,'content':cmt.comment,'time':cmt.time} %}
+			{% set array = array|merge({(cmt.time):get_cmt}) %}
+		{% endif %}
+  	{% endfor %}
+	{% set data = array %}
+	{% set total = array|length %}
+  	{% set per = '5' %}
+  	{% set page_max = total//per %}
+  	{% if total//per != total/per %}
+    	{% set page_max = total//per+1 %}
+  	{% endif %}
+  	{% set p = get_get('act-page')|default(1) %}
+  	{% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  	{% if p > page_max %}{% set p = page_max %}{% endif %}
+  	{% set st=p*per-per %}
+  	{% for time,cmt in array|slice(st,per) %}
+		{% set blog = select_table_row_data('blog','id',cmt.blogid) %}
+    <div class="mainblok" style="border-radius:10px">
+      <div class="postprofile" style="border-top-left-radius:10px;border-top-right-radius:10px">
+        <div class="postprofileInner" style="margin-top:0;padding-top:0">
+          <div class="profileAvatar"><img src="{{getAvtUser(user.nick)}}" width="38" height="38" alt="{{user.name}}" class="imgAvtUser" style="border:.5px solid #444"/></div>
+          <div class="profileInfo">
+            <div class="author"><a href="/user/{{user.nick}}">{{maunick(user.nick)}}</a> <i class="fa fa-angle-right" aria-hidden="true"></i> <a href="/forum/{{blog.id}}-{{blog.slug}}.html">{{blog.title}}</a></div>
+          	<div style="font-size:15px;color:#999"><i class="fa fa-clock-o"></i> {{ago(cmt.time)}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="d-menu" style="border-bottom-left-radius:10px;border-bottom-right-radius:10px">{{bbcode(cmt.content|slice(0,150))}}{% if cmt.content|length-1 > '150' %}... <a href="/forum/{{blog.id}}-{{blog.slug}}.html" style="font-weight:700">Xem thêm</a>{% endif %}</div>
+    </div>
+	{% endfor %}
+      {% if total > '5' %}
+      <div class="mainblok">{{paging(url|join('/')~'?act-page=',p,page_max)}}</div>
+      {% else %}
+      {{paging(url|join('/')~'?act-page=',p,page_max)}}
+      {% endif %}
+  {% endif %}
+  {#======================================================================#}
+  {% else %}
+<div class="mainblok" id="info">
+  {% if user.relationship in ['wife','husband'] %}
+  	{% set sweetheart = select_table_row_data('user_married', user.relationship, user.nick) %}
+    {% if sweetheart.wife == user.nick %}
+  	  {% set married_person = sweetheart.husband %}
+    {% else %}
+  	  {% set married_person = sweetheart.wife %}
+    {% endif %}
+    {% set married = select_table_row_data('users','nick',married_person) %}
+  <div class="menu" style="text-align:center">
+    <p>Đã kết hôn với <a href="/user/{{married.nick}}">{{maunick(married.nick)}}</a></p>
+    <p>
+      <a href="/user/{{user.nick}}"><img src="{{getAvtUser(user.nick)}}" loading="lazy" class="imgAvtUser" width="30px"/></a>
+      <img src="https://dorew-site.github.io/assets/ring/{{sweetheart.ring}}.jpg" style="width:30px;height:30px"/>
+      <a href="/user/{{married.nick}}"><img src="{{getAvtUser(married.nick)}}" loading="lazy" class="imgAvtUser" width="30px"/></a>
+    </p>
+    <p style="color:#444;font-size:12px">
+      {{sweetheart.time_start|date('H:i, d/m/Y')}}{% if my.nick == user.nick and my.relationship in ['wife','husband'] %} - <a href="/users/married">Nhà đôi</a>{% endif %}
+    </p>
+  </div>
+  {% endif %}
+  {#======================================================================#}
+  	{% if my.nick == user.nick or my.nick != user.nick and my.level > user.level %}<div style="padding-top:20px;padding-right:10px;float:right"><a href="{% if my.nick != user.nick and my.level > user.level %}/manager/user/{{user.nick}}{% else %}/user/info{% endif %}" title="Chỉnh sửa hồ sơ"><button><i class="fa fa-pencil-square-o" aria-hidden="true"></i></button></a></div>{% endif %}
+    <div class="menu">
+      <p>
+        <h4>Thông tin cá nhân</h4>
+        <ul>
+          <li><span class="gray">Giới tính:</span> <span style="color:red;font-weight:600">{% if user.nick == system_bot %}LGBT{% else %}{% if user.gt == 'boy' %}Nam{% else %}Nữ{% endif %}{% endif %}</span></li>
+          <li><span class="gray">Level:</span> <span style="font-weight:600">{{user.level|default(0)}}</span></li>
+          <li><span class="gray">Tài sản:</span> <span style="font-weight:600">{{user.xu|number_format}}</span> xu</li>
+          <li><span class="gray">Karma: <b style="color:{% if user.karma|default(0) > '20' %}orange{% else %}green{% endif %}">{{user.karma|default(0)}} <i class="fa fa-paw" aria-hidden="true"></i></b></span></li>
+          {% if user.nick != system_bot %}<li>Điểm trồng trọt: <span style="font-weight:600">{{user['farm']|default(0)|number_format}}</span></li>{% endif %}
+          {% if user.relationship == 'single' %}<li><span class="gray">Mối quan hệ:</span> {% if user.relationship == 'single' and user.propose != NULL and user.ring != NULL %}Đang theo đuổi <a href="/user/{{user.propose}}">{{maunick(user.propose)}}</a>{% else %}Độc thân{% if my.nick != user.nick and my.relationship not in ['wife','husband'] %} - <a href="/users/married?nick={{user.nick}}" style="color:orange;font-weight:700">Kết hôn</a>{% endif %}{% endif %}{% endif %}
+          </li>
+        </ul>
+        </p>
+    </div>
+    {% if user_dragon['nick'] == user.nick %}
+    <div class="menu">
+      <p>
+        <h4>Rồng: <a href="/play/dragon/{{user.nick}}" style="color:red;font-weight:700">{{html_decode(user_dragon['name'])}}</a></h4>
+      	{% if user_dragon['rank'] >= 400 %}
+      	<div id="rank"><img src="https://dorew-site.github.io/assets/dragon/{{user_dragon['dragon']}}/{{tienhoa('play_dragon',user.nick)}}.gif" alt="Dragon" style="width:50px;height:50px"/> <img src="{{rank('play_dragon', user.nick, 'rank_image_url')}}" style="width:50px;height:50px"/> {% if rank_best.nick == user.nick %} <img src="https://dorew-site.github.io/assets/rank/War/Top/Champion.png" style="width:50px;height:50px"/>{% endif %}</div>
+      	{% endif %}
+        <ul>
+          <li><span class="gray">Giải đấu:</span> {{(user_dragon['rank'] >= 400 ? rank('play_dragon', user.nick, 'league') : 'Chưa xếp hạng')|raw}}</li>
+          <li><span class="gray">Điểm hạng:</span> {{user_dragon['rank']|default(0)}}</li>
+          <li><span class="gray">Tiềm lực:</span> <span style="font-weight:600">{{user.do|number_format}}</span> điểm</li>
+        </ul>
+        </p>
+    </div>
+    {% endif %}
+    <div class="menu">
+        <p>
+        <h4>Thống kê</h4>
+        <ul>
+            <li><span class="gray">Ngày đăng ký:</span> {% if user.id <= '15' %}?/?/2018{% else %}{{user.reg|date('d.m.Y / H:i','Asia/Ho_chi_Minh')}}{% endif %}</li>
+            <li><span class="gray">Nhìn thấy lần cuối:</span> {% if user.on == 'now'|date('U') or user.nick == system_bot %}Đang hoạt động{% else %}{{ago(user.on)}}{% endif %}</li>
+        </ul>
+      </p>
+      <p>
+        <h4>Hoạt động</h4>
+        <ul>
+            <li><span class="gray">Diễn đàn:</span> <a href="/user/{{user.nick}}/act">{{get_row_count('blog',{'author':user.nick,'operator':'='})|default(0)+get_row_count('chap',{'author':user.nick,'operator':'='})|default(0)}}</a></li>
+            <li><span class="gray">Bình luận:</span> {{get_row_count('cmt',{'author':user.nick,'operator':'='})|default(0)}}</li>
+            <li><span class="gray">Chatbox:</span> {{get_row_count('chat',{'name':user.nick,'operator':'='})|default(0)}}</li>
+        </ul>
+      </p>
+    </div>
+  {#======================================================================#}
+</div>
+  {% endif %}
+<style>#info ul{list-style:none;padding-left:10px}</style>
+
+{% endset %}
+{{block('w3_twothird')}}
+
+{% set w3_third_content %}
+  {{block('user_wall')}}
+{% endset %}
+{{block('w3_third')}}
+{#=============================================================================#}
+{% elseif url[1] == 'change.password' %}{#đổi mật khẩu#}
+{% set w3_main4px_content %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/user">Trang cá nhân</a></li>
+  <li><a href="/user/info">Thông tin</a></li>
+  {#<li><a href="/user/change.password">Mật khẩu</a></li>#}
+</ul>
+<div class="mainblok">
+  <div class="phdr">Thay đổi mật khẩu</div>
+  {% if request_method()|lower == 'post' %}
+  	{% set current_pass = my.pass %}
+  	{% set e_oldpass = e_pass(get_post('oldpass')) %}
+  	{% set newpass = get_post('newpass') %}
+  	{% set confirm = get_post('confirm') %}
+  	{% if current_pass != e_oldpass %}
+  		{% set notice = 'Mật khẩu cũ không chính xác' %}
+  	{% elseif newpass != confirm %}
+  		{% set notice = 'Xác thực mật khẩu không khớp' %}
+  	{% endif %}
+  	{% if notice %}
+  <div class="rmenu">{{notice}}!</div>
+  	{% else %}
+  		{% set save_newpass = e_pass(newpass) %}
+  		{% do update_row_table('users', 'pass', save_newpass, 'id', my.id) %}
+  <div class="gmenu">Thay đổi mật khẩu thành công!</div>
+  	{% endif %}
+  {% endif %}
+  <form method="post" action="">
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Mật khẩu:</td>
+        <td class="w3-left-align e2"><input type="password" name="oldpass" class="form-control" placeholder="Nhập mật khẩu cũ"/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Mật khẩu mới:</td>
+        <td class="w3-left-align e2"><input type="password" name="newpass" class="form-control" placeholder="Nhập mật khẩu mới"/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Xác nhận:</td>
+        <td class="w3-left-align e2"><input type="password" name="confirm" class="form-control" placeholder="Nhập lại mật khẩu mới"/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu w3-center">
+    <button type="submit" class="w3-button" name="change" value="agree">Lưu lại</button>
+  </div>
+  </form>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'change.blocklist' %}{#danh sách chặn#}
+{% set w3_main4px_content %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/user">Trang cá nhân</a></li>
+  <li><a href="/user/info">Thông tin</a></li>
+  {#<li><a href="/user/change.password">Mật khẩu</a></li>#}
+</ul>
+<div class="mainblok">
+  <div class="phdr">Danh sách chặn</div>
+  {% if request_method()|lower == 'post' %}
+  	{% set block = '' %}
+  	{% for k,v in get_post('block','list')|last %}
+  		{#get_post(name_method,'list') => lấy danh sách các phần tử trong form method#}
+  		{% set dub = select_table_row_data('users','nick',v) %}
+  		{% if dub.id %}
+  			{% set block = block~v~'.' %}
+  		{% endif %}
+    {% endfor %}
+  	{% do update_row_table('users', 'blocklist', my.blocklist|replace({(block):''}), 'nick', is_login()) %}
+  	{{redirect('/'~url|join('/'))}}
+  {% endif %}
+  {% set data = my_blocklist %}
+  {% set total = data|length-1 %}
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+  	{% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p = get_get('page')|default(1) %}
+  {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  {% if p > page_max %}{% set p = page_max %}{% endif %}
+  {% set st=p*per-per %}
+  {% if total == 0 %}
+  <div class="menu">Trống!</div>
+  {% else %}
+  <form method="post">
+  	{% for user_blocked in my_blocklist|slice(st,per) %}
+  		{% set dub = select_table_row_data('users','nick',user_blocked) %}
+  		{% if dub.id %}
+    <div class="sticked menu"><input type="checkbox" name="block[]" value="{{user_blocked}}"> <a href="/user/{{user_blocked}}">{{maunick(user_blocked)}}</a> (@{{user_blocked}})</div>
+  		{% endif %}
+  	{% endfor %}
+    <div class="menu"><button type="submit" class="btn btn-warning btn-block"><i class="fa fa-unlock-alt" aria-hidden="true"></i> Bỏ chặn</button></div>
+  </form>
+  	{{paging(url|join('/')~'?page=',p,page_max)}}
+  {% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% else %}{# url[1]: avatar, cover, info #}
+{% set w3_main4px_content %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/user">Trang cá nhân</a></li>
+  <li><a href="/user/info">Thông tin</a></li>
+  {% if url[1] in ['avatar','cover'] %}
+  <li><a href="/{{url|join('/')}}">{% if url[1] == 'avatar' %}Ảnh đại diện{% else %}Ảnh bìa{% endif %}</a></li>
+  {% endif %}
+</ul>
+<div class="mainblok" id="edit-info">
+  <form id="form" action="" method="post" name="form">
+  <div class="phdr"><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Chỉnh sửa</div>
+    {#===========XỬ LÝ THÔNG TIN===========#}
+    {% if request_method()|lower == 'post' %}
+    	{% set save_status = get_post('status')|slice(0,250) %}
+    	{% set save_avatar = get_post('avatar') %}
+    	{% set save_cover = get_post('cover') %}
+    	{% set save_name = get_post('name')|slice(0,20) %}
+    	{% set save_gt = get_post('gt') %}
+    	{% set save_layout = get_post('theme')|default('desktop') %}
+    	{#========================================================#}
+    	{% if save_status %}
+    		{% do update_row_table('users', 'status', save_status, 'id', my.id) %}
+    	{% endif %}
+    	{% if save_avatar in 1..29 and url[1] not in ['avatar','cover'] %}
+    		{% do update_row_table('users', 'avt', save_avatar, 'id', my.id) %}
+    	{% endif %}
+    	{% if url[1] in ['avatar','cover'] %}
+    		{% if 'http' in save_avatar|lower and url[1] == 'avatar' %}
+    			{% do update_row_table('users', 'avt', save_avatar, 'id', my.id) %}
+    		{% elseif 'http' in save_cover|lower and url[1] == 'cover' %}
+    			{% do update_row_table('users', 'cover', save_cover, 'id', my.id) %}
+    		{% endif %}
+    		{{redirect('/user')}}
+    	{% endif %}
+    	{% if save_name|length in 3..20 and save_name not in ['',null,NULL,' '] %}
+    		{% do update_row_table('users', 'name', save_name, 'id', my.id) %}
+    	{% endif %}
+    	{% if save_gt|lower in ['boy','girl'] %}
+    		{% do update_row_table('users', 'gt', save_gt, 'id', my.id) %}
+    	{% endif %}
+        {% if save_layout|lower in ['desktop','mobile'] %}
+    		{% do update_row_table('users', 'layout', save_layout, 'id', my.id) %}
+    		{{redirect('/user')}}
+    	{% endif %}
+    <div class="gmenu">Đã cập nhật thông tin!</div>
+    {% endif %}
+    {#=========END XỬ LÝ THÔNG TIN=========#}
+    {% if url[1] in ['avatar','cover'] %}
+    {#===========AVT/COVER===========#}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.7.0/jquery.validate.min.js"></script>
+
+<div class="menu">
+  <center>
+      <textarea style="display:none;" type="text" name="{{url[1]|lower}}" rows="1"></textarea>
+      <br/> <a id="upload" href="#upload" class="button">Chọn Ảnh <i class="fa fa-upload" aria-hidden="true"></i></a> 
+      <input style="display:none" type="file" id="f" accept="image/*">
+  </center>
+</div>
+
+<script>
+function imgur(f, ob) {
+	var files = document.querySelector(f);
+	files.onchange = function () {
+		var file = this.files[0];
+		if (file && file.type.match(/image.*/)) {
+			var fd = new FormData();
+			fd.append("image", file);
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://api.imgur.com/3/image.json");
+			xhr.upload.onprogress = function (e) {
+				if (e.lengthComputable) {
+					var percent = Math.floor((e.loaded / e.total) * 100) + '%';
+					ob.loading(percent)
+				}
+			};
+			xhr.onload = function () {
+				var imgs;
+				var res = JSON.parse(xhr.responseText);
+				if (res.status === 200 && res.success === !0) {
+					var data = res.data;
+					ob.loaded(data.link, data.type, data.size, data.datetime)
+				} else {
+					window.alert('Lỗi: tải lên thất bại')
+				}
+			}
+			xhr.setRequestHeader('Authorization', 'Client-ID 71ae7b89253621e');
+			xhr.send(fd)
+		} else {
+			window.alert('Chỉ cho phép chọn ảnh')
+		}
+	}
+}
+
+document.querySelector("#upload").onclick = function () {
+	document.querySelector("#f").click();
+}
+imgur("#f", {
+	loading: function (load) {
+		document.querySelector("#upload").innerHTML = '<i class="fa fa-spin fa-spinner" aria-hidden="true"></i> ' + load
+	},
+	loaded: function (link, size, type, time) {
+		var input = $("textarea").val();
+		$("textarea").val(link);
+		document.getElementById("form").submit();
+	}
+})
+</script>
+    {#=========END AVT/COVER=========#}
+    {% else %}
+    {#===========FORM INFO===========#}
+  <div class="rmenu list1"><a href="/user/change.password">Thay đổi mật khẩu</a></div>
+  <div class="rmenu list1"><a href="/user/change.blocklist">Danh sách chặn</a></div>
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Tâm trạng:</td>
+        <td class="w3-left-align e2"><input type="text" value="{{my.status}}" name="status" class="form-control"/></td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1" style="vertical-align:top">Avatar: <a href="/user/avatar">[Tải lên]</a></td>
+        <td class="w3-left-align e2">
+      {% for img in 1..29 %}
+          {% set img = img|trim %}
+          <input type="radio" name="avatar" value="{{img}}"{% if img == my.avt %} checked="checked"{% endif %}/> <img src="{{showAvtUser(img)}}" id="edit-avt">
+          {% endfor %}
+        </td>
+      </tr>
+    </table>
+  </div>
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Tên hiển thị:</td>
+        <td class="w3-left-align e2"><input type="text" value="{{my.name|default(my.nick)}}" name="name" class="form-control"/></td>
+      </tr>
+      <tr>
+        <td class="e1" style="vertical-align:top">Giới tính:</td>
+        <td class="w3-left-align e2">
+          {% for sex in ['boy','girl'] %}
+          <input type="radio" value="{{sex}}" name="gt"{% if my.gt == sex %} checked="checked"{% endif %}/> {% if sex == 'boy' %}Con trai{% else %}Con gái{% endif %}{% if loop.last == false %}<br/>{% endif %}
+          {% endfor %}
+        </td>
+      </tr>
+    </table>
+  </div>
+    {% if my.level >= 127 %}
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Giao diện:</td>
+        <td class="w3-left-align e2">
+          <select name="theme" class="form-control">
+            {% for style in ['mobile','desktop'] %}
+            <option value="{{style}}"{% if my.layout == style %} selected="selected"{% endif %}>{{style|capitalize}}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+    </table>
+  </div>
+    {% endif %}
+  <div class="menu w3-center">
+    <button type="submit" class="w3-button" name="change" value="agree">Lưu lại</button>
+  </div>
+    {#=========END FORM INFO=========#}
+    {% endif %}
+  </form>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% endif %}
+{{block('end')}}
+{% else %}
+	{{redirect('/login')}}
+{% endif %}

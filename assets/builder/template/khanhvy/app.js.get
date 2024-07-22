@@ -1,0 +1,213 @@
+{% spaceless %}
+{% set uri = get_uri_segments() %}
+{% set app = get_get('name') %}
+{% from '_functions' import checkExtension %}
+{% if app == 'file-ipfs' and get_get('id') %}
+	{% set file = select_table_row_data('file','id',get_get('id')) %}
+	{% if not is_login() and file.status == 'private' %}{% set file = false %}{% endif %}
+{% endif %}
+{{file_header('Content-Type: application/javascript')}}
+{#============================================================================#}
+{% if app == 'main' %}
+{% if get_get('s') %}
+function run_swipebox(){$(".swipebox").swipebox()}run_swipebox();
+{% endif %}
+var mySidebar=document.getElementById("mySidebar"),overlayBg=document.getElementById("myOverlay");function w3_open(){"block"===mySidebar.style.display?(mySidebar.style.display="none",overlayBg.style.display="none"):(mySidebar.style.display="block",overlayBg.style.display="block")}function w3_close(){mySidebar.style.display="none";overlayBg.style.display="none"};
+{#
+var heightWindow = $(window).height();
+if (heightWindow >= 600){
+	$('.w3-pc').attr('style', 'min-height:' + (heightWindow - 135) + 'px');
+}
+new Image().src='https://nullitics.com/n.gif?u=' + encodeURI(location.href) + '&r=' + encodeURI(document.referrer) + '&d=' + screen.width;
+#}
+{% if is_login() %}
+$('.sitem').click(function() {
+    var path = $(this).attr('path');
+    $.post('/api/smile', {
+        path: path
+    }, function(data) {
+        $('.sright').html(data);
+    });
+});
+$('.sright').on('click', '.ritem', function() {
+    var smile = $(this).attr('smile');
+    $('textarea').val($('textarea').val() + smile);
+	show_hide('sm');
+});
+{% endif %}
+
+{#============================================================================#}
+
+{% elseif app == 'improved' %}
+const editing=document.getElementById("{{get_get('textarea')|default('postText')}}"),keymap={"<":{value:"<>",pos:1},"(":{value:"()",pos:1},"{":{value:"{}",pos:1},"[":{value:"[]",pos:1},"'":{value:"''",pos:1},'"':{value:'""',pos:1},"â€œ":{value:"â€œâ€",pos:1},"`":{value:"``",pos:1},"â€˜":{value:"â€˜â€™",pos:1},"Â«":{value:"Â«Â»",pos:1},"ă€Œ":{value:"ă€Œă€",pos:1},"*":{value:"**",pos:1},_:{value:"__",pos:1},">":{value:"> ",pos:2},"~":{value:"~~",pos:1},",":{value:", ",pos:2}},snipmap={"1#":"# ","2#":"## ","3#":"### ","4#":"#### ","5#":"##### ","6#":"###### ",Lorem:"Lorem ipsum dolor sit amet consectetur adipisicing elit. Maxime mollitia, molestiae quas vel sint commodi repudiandae consequuntur voluptatum laborum numquam blanditiis harum quisquam eius sed odit fugiat iusto fuga praesentium optio, eaque rerum!"};function getWord(e,i){let t=e.substring(0,i),n=t.split(/\s/);return n[n.length-1].trim()}function looksLikeBullet(e,i){let t=/^([ \t]*[\*\-\+]\s*).*/gim,n=e.substring(0,i).split(/\r?\n|\r/).pop(),l=/^([ \t]*\d+\.\s*).*/gim;return t.test(n)?{bullet:n.replace(t,"$1")}:!!l.test(n)&&{bullet:n.replace(l,"$1").replace(/\d+/,e=>+e+1)}}function resize(){editing.style.height="86px",editing.style.height=editing.scrollHeight+"px"}editing.addEventListener("keydown",function(e){var i,t,n;keymap[e.key]&&(e.preventDefault(),t=editing.selectionStart,editing.value=editing.value.slice(0,t)+keymap[e.key].value+editing.value.slice(editing.selectionEnd),editing.selectionStart=editing.selectionEnd=t+keymap[e.key].pos),"Tab"===e.key&&((i=getWord(editing.value,editing.selectionStart))&&snipmap[i]?(e.preventDefault(),t=editing.selectionStart,editing.value=editing.value.slice(0,t-i.length)+snipmap[i]+editing.value.slice(editing.selectionEnd),editing.selectionStart=editing.selectionEnd=t+(snipmap[i].length-1)):(e.preventDefault(),n=editing.selectionStart,editing.value=editing.value.slice(0,n)+" "+editing.value.slice(editing.selectionEnd),editing.selectionStart=editing.selectionEnd=n+1)),"Enter"!==e.key||(n=looksLikeBullet(editing.value,editing.selectionStart))&&(e.preventDefault(),e=editing.value.substring(editing.selectionStart),editing.value=editing.value.substring(0,editing.selectionStart),editing.value+="\n"+n.bullet+e),resize()}),editing.addEventListener("input",resize);
+
+{#============================================================================#}
+
+{% elseif app == 'imgur' %}
+function imgur(e,a){document.querySelector(e).onchange=function(){var e=this.files[0];if(e&&e.type.match(/image.*/)){var t=new FormData;t.append("image",e);var n=new XMLHttpRequest;n.open("POST","https://api.imgur.com/3/image.json"),n.upload.onprogress=function(e){if(e.lengthComputable){var t=Math.floor(e.loaded/e.total*100)+"%";a.loading(t)}},n.onload=function(){var e=JSON.parse(n.responseText);if(200===e.status&&!0===e.success){var t=e.data;a.loaded(t.link,t.type,t.size,t.datetime)}else window.alert("Lỗi: tải lên thất bại")},n.setRequestHeader("Authorization","Client-ID 71ae7b89253621e"),n.send(t)}else window.alert("Chỉ cho phép chọn ảnh")}}document.querySelector("#{{get_get('a')|default('upload')}}").onclick=function(){document.querySelector("#{{get_get('f')|default('f')}}").click()},imgur("#{{get_get('f')|default('f')}}",{loading:function(e){document.querySelector("#{{get_get('a')|default('upload')}}").innerHTML='[ <i class="fa fa-upload" aria-hidden="true"></i> '+e+" ]"},loaded:function(e,a,t,n){var o=$("textarea").val();$("textarea").val(o+" [img]"+e+"[/img]"),document.querySelector("#{{get_get('a')|default('upload')}}").innerHTML='[ <i class="fa fa-upload" aria-hidden="true"></i> ]'}});
+
+{#============================================================================#}
+
+{% elseif app == 'nft' %}
+$("#{{get_get('f')|default('f2')}}").on("change",function(){var e=document.getElementById("{{get_get('f')|default('f2')}}"),a=e.files[0].name,c=encodeURI(a);fetch("https://api.nft.storage/upload",{method:"post",headers:{Authorization:"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDI4ZjRFNDJEYjMxQWRiODdFYjQ3M2I2NmJjNjI1MTJlMzE4OEVGMjAiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTYzNzUxODc3NDE4MCwibmFtZSI6IkRvcmV3In0._fktZLU7Uj0o3cJgPLlSJOBX3ajw2i-yUQxUfsTi1Yw"},body:e.files[0]}).then(e=>e.json()).then(e=>{console.log(e.value.cid);var i="",t=a.substring(c.lastIndexOf(".")+1),i="gif"==(t=t.toLowerCase())||"jpeg"==t||"jpg"==t||"png"==t||"webp"==t?"[img]https://ipfs-gateway.cloud/ipfs/"+e.value.cid+"?filename="+c+"[/img]":"mp4"==t||"mkv"==t||"webm"==t||"mp3"==t||"wav"==t||"flac"==t||"m4a"==t||"wav"==t||"ogg"==t?"[vid]https://ipfs-gateway.cloud/ipfs/"+e.value.cid+"?filename="+c+"[/vid]":"https://ipfs-gateway.cloud/ipfs/"+e.value.cid+"?filename="+c,e=$("textarea").val();$("textarea").val(e+" "+i),c=a=null})}),document.querySelector("#{{get_get('a')|default('upload2')}}").onclick=function(){document.querySelector("#{{get_get('f')|default('f2')}}").click()};
+
+{#============================================================================#}
+
+{% elseif app == 'time-now' %}
+function TimeNow(){var e=new Date,t=e.getDate()+"-"+(e.getMonth()+1)+"-"+e.getFullYear()+" "+(e.getHours()+":"+e.getMinutes()+":"+e.getSeconds());document.getElementById("TimeNow").innerHTML=t}
+setInterval(TimeNow, 1000);
+
+{#============================================================================#}
+
+{% elseif app == 'chatbox' %}
+  var chatbox = "../{{get_get('list')|default('chat_list')}}";
+  loadcontent = '<div class="list1">Đang tải dữ liệu <i class="fa fa-spin fa-hourglass-half"></i></div>', $(document).ready(function() {
+  	$("#idChat").html(loadcontent), $.get(chatbox, function(t) {
+  		$("#idChat").html(t).hide().slideDown("slow")
+  	});
+  	var a = $("#form"),
+  		e = $("#submit"),
+  		i = $("#alert"),
+  		n = $("#postText");
+  	a.on("submit", function(t) {
+  		return t.preventDefault(), "" == n ? (i.show(), i.text("Bạn chưa nhập nội dung !!!"), $("#postText").focus(), !1) : void $.ajax({
+  			url: "../{{get_get('send')|default('chat_send')}}",
+  			type: "POST",
+  			timeout: 5e3,
+  			dataType: "html",
+  			data: a.serialize(),
+  			beforeSend: function() {
+  				i.fadeOut(), e.html('Đang gửi <i class="fa fa-spinner fa-spin fa-fw"></i>')
+  			},
+  			success: function(t) {
+  				a.trigger("reset"), $("#postText").focus(), $("#postText").val(""), e.html('<i class="fa fa-check" aria-hidden="true"></i> Chat')
+  			},
+  			error: function(t) {
+  				console.log(t)
+  			}
+  		})
+  	})
+  });
+
+  async function gogoChat(){reload_chat=setInterval(async function(){fetch("/{{get_get('count')|default('chat_count')}}").then(t=>t.json()).then(t=>{for(var a=t;a>totalChat;){totalChat++;var m="../{{get_get('ele')|default('chat_ele')}}?chatID="+totalChat;$.get(m,function(t){$("#idChat").prepend(t),$("#idChat .list1:last").remove(),phanTrangChat(totalChat,pageID)})}})},2e3)}
+
+function phanTrangChat(totalChat,pageID){
+              var tongPage = 1;
+              if (totalChat % 10 > 0) {
+                  tongPage = Math.floor(totalChat / 10) + 1;
+              }
+              else {
+                  tongPage = Math.floor(totalChat / 10);
+              }
+
+
+              console.log('Tong chat' + totalChat);
+              console.log('Tong page ' + tongPage);
+              $("#phan-trang").empty();
+              var pageIDm1=pageID-1;
+              var pageIDm2=pageID-2;
+              var pageIDp1=Number(pageID)+1;
+              var pageIDp2=Number(pageID)+2;
+
+              if( pageID>1 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDm1+')" >«</a>');
+              }
+              if( pageID>3 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+',1)" >1</a>');
+              }
+              if( pageID>4 ){
+                $('#phan-trang').append('...');
+              }
+              if( pageID>2 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDm2+')" >'+pageIDm2+'</a>');
+              }
+              if( pageID>1 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDm1+')" >'+pageIDm1+'</a>');
+              }
+              $('#phan-trang').append('<span class="current"><b>'+pageID+'</b></span>');
+              if( pageID<tongPage-1 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDp1+')" >'+pageIDp1+'</a>');
+              }
+              if( pageID<tongPage-2 ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDp2+ ') ">'+pageIDp2+'</a>');
+              }
+              if( pageID<tongPage-3 )
+                $('#phan-trang').append('...');
+
+              if( pageID<tongPage ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+tongPage+')" >'+tongPage+'</a>');
+              }
+              if( pageID<tongPage ){
+                $('#phan-trang').append('<a class="pagenav" onclick="loadTrang(' + totalChat+','+pageIDp1+')" >»</a>');
+	$('#phan-trang').append('<br/><div style="margin-top:3px;margin-bottom:10px"><input style="padding:0px 0px 0px 0px; margin-right:15px; width:60px" type="number" id="ano" name="page" min="1" max="' + tongPage + '"><input type="submit" class="pagenav" onclick="getPage(' + totalChat+')" value="Go"></div>');
+              }
+
+}
+   
+function getPage(totalChat){
+	loadTrang(totalChat,$("#ano").val());
+}
+
+function loadTrang(totalChat,pageID){
+$("#idChat").empty();
+
+var chatli = "../{{get_get('list')|default('chat_list')}}?page=" + pageID;
+$.get(chatli, function(t) {
+    $("#idChat").append(t);
+});
+
+document
+    .getElementById("chat-place")
+    .scrollIntoView();
+	phanTrangChat(totalChat,pageID);
+}
+
+gogoChat();
+phanTrangChat(totalChat,pageID);
+                                  
+{#============================================================================#}
+                                  
+{% elseif app == 'file-ipfs' and file.id %}
+function readfile(n){return new Promise((e,t)=>{var o=new FileReader;o.onload=()=>{e(o.result)},o.readAsArrayBuffer(n)})}async function decryptfile(e,t,o){var n=await readfile(e).catch(function(e){console.error(e)}),r=new Uint8Array(n),e=new TextEncoder("utf-8").encode(o),n=r.slice(8,16),e=await window.crypto.subtle.importKey("raw",e,{name:"PBKDF2"},!1,["deriveBits"]).catch(function(e){console.error(e)});console.log("passphrasekey imported");e=await window.crypto.subtle.deriveBits({name:"PBKDF2",salt:n,iterations:1e4,hash:"SHA-256"},e,384).catch(function(e){console.error(e)});console.log("pbkdf2bytes derived"),e=new Uint8Array(e),keybytes=e.slice(0,32),ivbytes=e.slice(32),r=r.slice(16);e=await window.crypto.subtle.importKey("raw",keybytes,{name:"AES-CBC",length:256},!1,["decrypt"]).catch(function(e){console.error(e)});console.log("key imported");r=await window.crypto.subtle.decrypt({name:"AES-CBC",iv:ivbytes},e,r).catch(function(e){console.error(e)});console.log("ciphertext decrypted"),r=new Uint8Array(r);r=new Blob([r],{type:"application/download"});console.log(t),console.log(o);const c=document.createElement("a");c.href=URL.createObjectURL(r),c.download=t,c.click()}async function downloadURL(t,e,o){document.getElementById("dai").insertAdjacentHTML("beforeend",'<img src="https://i.imgur.com/1TyFaOM.gif" />'),fetch("https://cloudflare-ipfs.com/ipfs/"+e).then(e=>e.blob()).then(e=>{decryptfile(e,t,o),document.getElementById("dai").innerHTML=""}).catch(console.error)}
+
+{% if checkExtension(file.filename) == "file-video-o" or checkExtension(file.filename) == "file-audio-o" %}
+async function decryptfileVideo(e,t,o){var i=await readfile(e).catch(function(e){console.error(e)}),c=new Uint8Array(i),e=new TextEncoder("utf-8").encode(o),i=c.slice(8,16),e=await window.crypto.subtle.importKey("raw",e,{name:"PBKDF2"},!1,["deriveBits"]).catch(function(e){console.error(e)});console.log("passphrasekey imported");e=await window.crypto.subtle.deriveBits({name:"PBKDF2",salt:i,iterations:1e4,hash:"SHA-256"},e,384).catch(function(e){console.error(e)});console.log("pbkdf2bytes derived"),e=new Uint8Array(e),keybytes=e.slice(0,32),ivbytes=e.slice(32),c=c.slice(16);e=await window.crypto.subtle.importKey("raw",keybytes,{name:"AES-CBC",length:256},!1,["decrypt"]).catch(function(e){console.error(e)});console.log("key imported");c=await window.crypto.subtle.decrypt({name:"AES-CBC",iv:ivbytes},e,c).catch(function(e){console.error(e)});console.log("ciphertext decrypted"),c=new Uint8Array(c);c=new Blob([c],{type:"application/download"});console.log(t),console.log(o);o=document.querySelector("video"),c=window.URL.createObjectURL(c);o.src=c,o.style.visibility="visible"}async function previewVideoURL(t,e,o){document.getElementById("dai").insertAdjacentHTML("beforeend",'<img src="https://i.imgur.com/1TyFaOM.gif" />'),fetch("https://cloudflare-ipfs.com/ipfs/"+e).then(e=>e.blob()).then(e=>{decryptfileVideo(e,t,o),document.getElementById("dai").innerHTML=""}).catch(console.error)}
+{% endif %}
+
+{% if checkExtension(file.filename) == "file-image-o" %}
+async function decryptfileImg(e,t,o){var n=await readfile(e).catch(function(e){console.error(e)}),c=new Uint8Array(n),e=new TextEncoder("utf-8").encode(o),n=c.slice(8,16),e=await window.crypto.subtle.importKey("raw",e,{name:"PBKDF2"},!1,["deriveBits"]).catch(function(e){console.error(e)});console.log("passphrasekey imported");e=await window.crypto.subtle.deriveBits({name:"PBKDF2",salt:n,iterations:1e4,hash:"SHA-256"},e,384).catch(function(e){console.error(e)});console.log("pbkdf2bytes derived"),e=new Uint8Array(e),keybytes=e.slice(0,32),ivbytes=e.slice(32),c=c.slice(16);e=await window.crypto.subtle.importKey("raw",keybytes,{name:"AES-CBC",length:256},!1,["decrypt"]).catch(function(e){console.error(e)});console.log("key imported");c=await window.crypto.subtle.decrypt({name:"AES-CBC",iv:ivbytes},e,c).catch(function(e){console.error(e)});console.log("ciphertext decrypted"),c=new Uint8Array(c);c=new Blob([c],{type:"application/download"});console.log(t),console.log(o);o=document.getElementById("ipreview"),c=window.URL.createObjectURL(c);o.src=c,o.style.visibility="visible"}async function previewImg(t,e,o){document.getElementById("dai").insertAdjacentHTML("beforeend",'<img src="https://i.imgur.com/1TyFaOM.gif" />'),fetch("https://cloudflare-ipfs.com/ipfs/"+e).then(e=>e.blob()).then(e=>{decryptfileImg(e,t,o),document.getElementById("dai").innerHTML=""}).catch(console.error)}
+{% endif %}
+ 
+{#============================================================================#}
+
+{% elseif app == 'sticky' %}
+    var heightCot1 = $('.w3-twothird').height();
+    var heightCot2 = $('.w3-third').height();
+    if (heightCot1 < heightCot2) {
+      $('.w3-third #head-wall-comment').addClass('add-sticky');
+      $('.w3-twothird').addClass('add-sticky');
+      $('.w3-twothird #head-wall').removeClass('add-sticky');
+      $(window).scroll(function() {
+        if ($(window).scrollTop() > 150) {
+          $('.w3-twothird #head-wall').addClass('add-padding');
+        } else {
+          $('.w3-twothird #head-wall').removeClass('add-padding');
+        }
+      });
+    } else {
+      $('.w3-twothird #head-wall').addClass('add-sticky');
+      $('.w3-third').addClass('add-sticky');
+      $('.w3-third #head-wall-comment').removeClass('add-sticky');
+      $(window).scroll(function() {
+        if ($(window).scrollTop() > 150) {
+          $('.w3-third #head-wall-comment').addClass('add-padding');
+        } else {
+          $('.w3-third #head-wall-comment').removeClass('add-padding');
+        }
+      });
+    }
+{#============================================================================#}
+{% else %}
+{{redirect('/error')}}
+{% endif %}
+{% endspaceless %}

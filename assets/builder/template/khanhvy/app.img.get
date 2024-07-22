@@ -1,0 +1,9 @@
+{% spaceless %}
+{% set uri = get_uri_segments() %}
+{% set app = get_get('name') %}
+{% if app == 'percent' %}
+	{{img_percent(get_get('input')|default(0))}}
+{% else %}
+	{{redirect('/error')}}
+{% endif %}
+{% endspaceless %}

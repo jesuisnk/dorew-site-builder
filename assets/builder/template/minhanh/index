@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello</title>
+    <link rel="stylesheet" href="https://nosine.gq/style.css" />
+  </head>
+  <body>
+    <header id="header">
+      <div>
+        <img src="http://st.nettruyenme.com/data/logos/logo-nettruyen.png" alt="Logo" />
+      </div>
+    </header>
+  </body>
+</html>

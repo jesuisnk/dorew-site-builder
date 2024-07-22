@@ -1,0 +1,28 @@
+{% set root = current_url()|split('/').0~"//"~current_url()|split('/').2 %}
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url><loc>{{root}}/</loc></url>
+  <url><loc>{{root}}/category</loc></url>
+{% for cat in select_table_data('category', 'id', 'asc') %}
+  {% set total_blog = select_table_where_data('blog', 'category', cat.id, id, 'asc')|length-1 %}
+  {% if cat.id %}
+  <url><loc>{{root}}/category/{{cat.id}}-{{cat.slug}}/</loc></url>
+  {% endif %}
+{% endfor %}
+{% for blog in select_table_data('blog', 'id', 'asc') %}
+  {% if blog.id %}
+  {% set time = blog.update_time|default(blog.time) %}
+  {% set Ymd = time|date('Y-m-d','Asia/Ho_Chi_Minh') %}
+  {% set His = time|date('H:i:s','Asia/Ho_Chi_Minh') %}
+  <url><loc>{{root}}/forum/{{blog.id}}-{{blog.slug}}.html</loc><lastmod>{{Ymd}}T{{His}}+00:00</lastmod></url>
+  {% endif %}
+{% endfor %}
+{% for chap in select_table_data('chap', 'id', 'asc') %}
+  {% if chap.id %}
+  {% set time = blog.time %}
+  {% set Ymd = time|date('Y-m-d','Asia/Ho_Chi_Minh') %}
+  {% set His = time|date('H:i:s','Asia/Ho_Chi_Minh') %}
+  <url><loc>{{root}}/view-chap/{{chap.id}}-{{chap.slug}}</loc><lastmod>{{Ymd}}T{{His}}+00:00</lastmod></url>
+  {% endif %}
+{% endfor %}
+</urlset>

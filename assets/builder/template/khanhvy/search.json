@@ -1,0 +1,23 @@
+[
+{% for blog in select_table_data('blog', 'update_time', 'desc') %}
+  {% if blog.id %}
+    {% set cat = select_table_row_data('category', 'id', blog.category).name %}
+    {
+      "title"    : "{{html_decode(blog.title)}}",
+      "url"      : "/forum/{{blog.id}}-{{blog.slug}}.html",
+      "cat"      : "{{cat}}"
+    },
+  {% endif %}
+{% endfor %}
+{% for chap in select_table_data('chap', 'id', 'asc') %}
+  {% if chap.id %}
+	{% set blog = select_table_row_data('blog', 'id', chap.box) %}
+    {% set cat = select_table_row_data('category', 'id', blog.category).name %}
+    {
+      "title"    : "{{html_decode(chap.title)}}",
+      "url"      : "/view-chap/{{chap.id}}",
+      "cat"      : "{{cat}}"
+    }{% if loop.last==false %} ,{% endif %}
+  {% endif %}
+{% endfor %}
+]

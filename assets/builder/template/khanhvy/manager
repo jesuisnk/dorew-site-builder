@@ -1,0 +1,368 @@
+{% use '_blog' %}
+{% use '_layout' %}
+
+{% set url = get_uri_segments() %}
+{% from '_functions' import ago,rwurl,paging,imgurUploadTextarea,post_prefix %}
+{% from '_users' import maunick,getAvtUser,e_pass %}
+
+{% if is_login() %}
+{% set title %}{% if url[1] == 'created-category' and user.level >= '120' %}Quản lý chuyên mục{% elseif url[1] == 'user' and user.level >= '120' %}Quản lý thành viên{% elseif url[1] == 'post'%}Tạo chủ đề{% endif %}{% endset %}
+{% set title = title|trim %}
+{{block('head')}}
+	{% set user = select_table_row_data('users','nick',is_login()) %}
+
+{#===============================================================================#}
+{#=====TẠO CHUYÊN MỤC=====#}
+{% if url[1] == 'created-category' and user.level >= '120' %}
+{% set w3_twothird_content %}
+<div class="mainblok">
+<div class="phdr"><i class="fa fa-plus-circle" aria-hidden="true"></i> <b>Tạo chuyên mục</b> (Tối đa 70 kí tự)</div>
+	{# table: category - column: id(chính),name,slug,content,keyword #}
+	{% if request_method()|lower == 'post' %}
+		{% set name,content,keyword,created = get_post('name'),get_post('content'),get_post('keyword'),get_post('created') %}
+		{% if name and content and keyword and created|lower == 'agree' %}
+			{% if name|length not in 1..70 %}
+				{% set notice = 'Độ dài tiêu đề chuyên mục không hợp lệ (min. 1, max. 70)' %}
+			{% endif %}
+			{% if notice %}
+<div class="rmenu">{{notice}}</div>
+			{% else %}
+				{% set slug = rwurl(name) %}
+				{% set row_cat = {'name':name,'slug':slug,'content':content,'keyword':keyword} %}
+				{% do insert_row_array_table('category', row_cat) %}
+<div class="gmenu">Tạo chuyên mục thành công</div>
+			{% endif %}
+		{% endif %}{# end tạo #}
+  		{% set select_category,deleted = get_post('category'),get_post('deleted') %}
+  		{% if select_category and deleted == 'agree' %}
+  			{% set data_cat = select_table_row_data('category','id',select_category) %}
+  			{% if data_cat.id == select_category %}
+  				{% set notice_delete = 'Xoá chuyên mục <b>'~data_cat.name~' (ID: '~data_cat.id~')</b> thành công!' %}
+  				{% do delete_row_table('category', 'id', select_category) %}
+			{% endif %}
+  		{% endif %}{# end xoá #}
+	{% endif %}
+<div class="menu">
+  <form action="" method="post">
+    <p>
+      Tên chuyên mục:<br/>
+      <input type="text" name="name" maxlength="50" required>
+    </p>
+    <p>
+      Mô tả:<br/>
+      <textarea name="content" required></textarea>
+    </p>
+    <p>
+      Từ khoá:<br/>
+      <textarea name="keyword" required></textarea>
+    </p>
+    <p style="text-align:center">
+      <button type="submit" class="btn btn-primary btn-block" name="created" value="agree">Tạo</button>
+    </p>
+  </form>
+</div>
+</div>
+<div class="mainblok">
+  {% if notice_delete %}<div class="rmenu">{{notice_delete|raw}}</div>{% endif %}
+<form action="" method="post">
+  <table style="width:100%"><tr>
+    <td style="width:80%"><select name="category" class="w3-select w3-border">
+      {% for select in select_table_data('category') %}
+      {% if select.id %}
+      <option value="{{select.id}}">{{select.name}}</option>
+      {% endif %}
+      {% endfor %}
+    </select></td>
+    <td><button type="submit" class="btn btn-warning btn-block" name="deleted" value="agree">Xoá</button></td>
+  </tr></table>
+</form>
+</div>
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+<div class="mainblok">
+  {{block('category')}}
+</div>
+{% endset %}
+{{block('w3_third')}}
+{#===END TẠO CHUYÊN MỤC===#}
+{#===============================================================================#}
+{#=======TẠO CHỦ ĐỀ=======#}
+{% elseif url[1] == 'post'%}
+	{% set id_cat = url[2]|split('-')[0] %}
+	{% set data_cat = select_table_row_data('category','id',id_cat) %}
+	{% if data_cat.id %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a itemprop="url" href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/category">Chuyên mục</a></li>
+  <li><a href="/{{url|join('/')}}">{{data_cat.name}}</a></li>
+</ul>
+	{% endif %}
+{% set w3_twothird_content %}
+<div class="mainblok">
+<div class="phdr"><i class="fa fa-pencil" aria-hidden="true"></i> Chủ đề mới</div>
+	{# table: blog - column: id(chính),title,slug,content,time,update_time,category,sticked,blocked,view,user_view,author,comment,chaplist,chapTitle,buyfile #}
+	{% if request_method()|lower == 'post' %}
+		{% set title,content,time,category,prefix = get_post('title'),get_post('msg'),'now'|date('U'),get_post('category'),get_post('prefix') %}
+		{% if data_cat.id == id_cat and get_row_count('category',{'id':id_cat}) == 1 %}
+  			{% set category = id_cat %}
+  		{% endif %}
+		{% set slug = rwurl(title) %}
+		{% if title and content and category %}
+			{% set data_blog = select_table_row_data('blog','slug',slug) %}
+			{% set row_blog = {'title':title,'slug':slug,'content':content,'time':time,'update_time':time,'category':category,'user_view':is_login()~'.','author':is_login(),'comment':get_post('comment')|default(0),'chaplist':get_post('chaplist')|default(0),'chapTitle':get_post('chapTitle')|default(2),'buyfile':get_post('buyfile')|default(0)} %}
+			{% if title|length not in 1..100 %}
+				{% set notice = 'Độ dài tiêu đề không hợp lệ (min. 1, max. 100)' %}
+			{% elseif data_blog.id %}
+				{% set notice = 'Chủ đề này đã tồn tại. Vui lòng chọn tiêu đề bài viết mới mẻ hơn =))' %}
+			{% endif %}
+			{% if notice %}
+<div class="rmenu">{{notice}}</div>
+			{% else %}
+  				{% if prefix and category in [14, 16] %}
+  					{% set row_blog = row_blog|merge({'prefix':post_prefix(category,prefix,'rwurl')}) %}
+  				{% endif %}
+				{% do insert_row_array_table('blog', row_blog) %}
+				{# cộng xu cho is_login() #}
+				{% do update_row_table('users', 'do', (user.do|trim+480), 'nick', is_login()) %}
+<div class="gmenu">Đăng chủ đề thành công</div>
+				{{redirect('/category/'~category)}}
+			{% endif %}
+		{% endif %}
+	{% endif %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.7.0/jquery.validate.min.js"></script>
+<form name="form" action="" method="post">
+  <input style="display:none" type="file" id="f" accept="image/*">
+  <div class="menu">
+    <b><i class="fa fa-gg" aria-hidden="true"></i> Tiêu đề:</b>
+    <p><input class="w3-input w3-border" type="text" name="title" value="" maxlength="300" style="height:100%; width:100%"></p>
+  </div>
+  {% if not data_cat.id %}
+  <div class="menu">
+    <b><i class="fa fa-bars"></i> Chuyên mục:</b> 
+    <p><select name="category" class="w3-select w3-border">
+      {% for select in select_table_data('category','id','desc') %}
+      {% if select.id %}
+      <option value="{{select.id}}">{{select.name}}</option>
+      {% endif %}
+      {% endfor %}
+    </select></p>
+  </div>
+  {% elseif id_cat in [14, 16] %}
+  {% set preList = post_prefix(id_cat,'0','list')|trim %}
+  <div class="menu">
+    <b><i class="fa fa-bars"></i> Tiền tố:</b>
+    <p><select name="prefix" class="w3-select w3-border">
+      <option value="">Không có tiền tố</option>
+      {% for pre in 1..preList|length %}
+      	{% set pre_name = post_prefix(id_cat,pre-1,'name') %}
+      	{% if pre_name not in ['',' ',null] %}
+      <option value="{{loop.index}}">{{pre_name}}</option>
+      	{% endif %}
+      {% endfor %}
+    </select></p>
+  </div>
+  {% endif %}
+  <div class="menu">
+    <b><i class="fa fa-newspaper-o" aria-hidden="true"></i> Nội dung:</b> <a id="upload">[ <i class="fa fa-upload" aria-hidden="true"></i> Upload Ảnh ]</a>
+    <p>
+      {{block('toolbar')}}
+      <textarea id="comment-comment" name="msg" rows="15"></textarea></div>
+    </p>
+  </div>
+  <div class="menu"><input class="w3-check" type="checkbox" name="comment" value="1" checked> Cho phép bình luận</div>
+  <div class="menu"><input class="w3-check" type="checkbox" name="chaplist" value="1">  Sử dụng danh sách chương
+    <p style="margin-left:5%">Tiêu đề danh sách<br/><input type="radio" name="chapTitle" value="1"> Danh sách chương<br/><input type="radio" name="chapTitle" value="2" checked> Cập nhật gần đây </p></div>
+  <div class="menu"><input class="w3-check" type="checkbox" name="buyfile" value="1"> Cho phép xem các bản cập nhật khi người dùng đã mua tập tin đầu tiên <i>(người dùng vẫn có thể đọc được các bản cập nhật dù không mua tập tin nếu bạn không tích √)</i></div>
+  <div class="menu" style="text-align:center"><button type="submit" class="button">Đăng bài</button></div>
+</form>
+</div>{# end div.mainblok #}
+{{imgurUploadTextarea()}}
+<script src="/textarea-improved5.js" type="text/javascript"></script>
+{% endset %}
+{{block('w3_twothird')}}
+{% set w3_third_content %}
+<div class="mainblok">
+<div class="phdr"><b><i class="fa fa-bars"></i> Chuyên mục</b></div>
+{% for cat in select_table_data('category', 'id', 'asc') %}
+  {% if cat.id %}
+    <div class="list1">
+      <a href="/manager/post/{{cat.id}}-{{cat.slug}}/">
+        <i class="fa fa-cube" aria-hidden="true"></i> {{cat.name}}
+      </a>
+      {% if cat.id == id_cat %}(đang chọn){% endif %}
+  </div>
+  {% endif %}
+{% endfor %}
+</div>
+{% endset %}
+{{block('w3_third')}}
+{#=====END TẠO CHỦ ĐỀ=====#}
+{#=====Q.L THÀNH VIÊN=====#}
+{% elseif url[1] == 'user' and user.level >= '120' %}
+<script src="/autocomplete.js?2"></script>
+<link type="text/css" rel="stylesheet" href="/autocomplete.css" media="all,handheld"/>
+{% set w3_main4px_content %}
+<div class="mainblok" id="edit-info">
+  <div class="phdr"><i class="fa fa-users" aria-hidden="true"></i> <b>Quản lý thành viên</b></div>
+  {% set nick = rwurl(url[2]) %}
+  {% set duser = select_table_row_data('users','nick',nick) %}
+  {% if nick not in ['',null] and not duser.id %}
+  <div class="rmenu">Người dùng có nickname <b>{{nick}}</b> không tồn tại!</div>
+  {% elseif nick not in ['',null] and duser.id %}
+  	{% if duser.nick == is_login() %}
+  <div class="rmenu">Bạn không thể chỉnh sửa thông tin của bản thân ở hạng mục này!</div>
+  	{% elseif duser.level >= user.level %}
+  <div class="rmenu">Bạn không thể chỉnh sửa thông tin của người dùng có cập bậc lớn hơn cấp bậc của bản thân!</div>
+  	{% else %}{#kiểm tra#}
+  	{% if request_method()|lower == 'post' %}
+  		{% set name = get_post('name')|default(duser.name|default(duser.nick)) %}
+  		{% set level = get_post('level')|default(duser.level) %}
+  		{% if get_post('ban') %}
+  			{% set level = '-1' %}
+  		{% else %}
+  			{% if level < '0' %}{% set level = '0' %}
+            	{% elseif level > user.level %}{% set level = user.level-10 %}
+  			{% endif %}
+  		{% endif %}
+  		{% set xu = get_post('xu')|default(duser.xu) %}
+  		{% set do = get_post('do')|default(duser.do) %}
+  		{% if get_post('change-pass') and pass|length >= 1 %}
+  			{% set pass = e_pass(get_post('pass')) %}
+  			{% do update_row_array_table('users', {'name':name,'level':level,'xu':xu,'do':do,'pass':pass}, 'id', duser.id) %}
+  		{% else %}
+  			{% do update_row_array_table('users', {'name':name,'level':level,'xu':xu,'do':do}, 'id', duser.id) %}
+  		{% endif %}
+  <div class="gmenu">Thông tin đã được thay đổi!</div>
+  {{file_header('Refresh: 3; url=/'~url|join('/'))}}
+  	{% endif %}
+  <form method="post">
+    <div class="menu">
+      Người dùng: <b>{{duser.nick}}</b>
+      <div><b>Tên hiển thị:</b></div>
+      <div><input type="text" value="{{duser.name}}" name="name" class="form-control"/></div>
+    </div>
+    <div class="menu">
+      <div><b>Cấp độ:</b></div>
+      <div><input type="checkbox" name="ban"{% if duser.level < 0 %} checked{% endif %}> Bóc lịch</div>
+      <div><input type="number" value="{{duser.level}}" name="level" class="form-control"/></div>
+    </div>
+    <div class="menu">
+      <div><b>Tài sản:</b></div>
+      <div><input type="number" value="{{duser.xu}}" name="xu" class="form-control"/></div>
+    </div>
+    <div class="menu">
+      <div><b>Tiềm lực:</b></div>
+      <div><input type="number" value="{{duser.do}}" name="do" class="form-control"/></div>
+    </div>
+    <div class="menu">
+      <div><b>Mật khẩu:</b></div>
+      <div><input type="checkbox" name="change-pass" value="agree"/> Thay đổi</div>
+      <div><input type="text" value="" name="pass" class="form-control"/></div>
+    </div>
+    <div class="menu"><button type="submit" class="btn btn-primary btn-block">Lưu lại</button></div>
+  </form>
+  	{% endif %}{#end kiểm tra#}
+  <div class="topmenu"><a href="/manager">Quay lại</a></div>
+  {% else %}
+  	{% if request_method()|lower == 'post' %}
+  		{% set nick = rwurl(get_post('username')|replace({'@':'',' ':''})) %}
+  		{% if select_table_row_data('users','nick',nick).id %}
+  			{% if nick == is_login() %}
+  				{% set page_edit = '/user/info' %}
+  			{% else %}
+  				{% set page_edit = '/'~url|join('/')~'/'~nick %}
+  			{% endif %}
+  			{{redirect(page_edit)}}
+  		{% else %}
+  <div class="rmenu">Dữ liệu không chính xác!</div>
+  		{% endif %}
+  	{% endif %}
+  <form method="post">
+  <div class="menu autocomplete">
+    <table style="width:100%">
+      <tr>
+        <td class="e1" valign="top">Tên người dùng:</td>
+        <td class="w3-left-align e2">
+          <input type="text" name="username" placeholder="Tìm kiếm với @nick" id="search-user" class="form-control" required/>
+          <div style="padding-top:2px"><button type="submit" class="btn btn-primary btn-block">Đến mục quản lý</button></div>
+        </td>
+      </tr>
+    </table>
+  </div>
+  </form>
+</div>
+<div class="mainblok">
+  <div class="phdr">Danh sách</div>
+    {% set total = query_select_table('users','*','WHERE `nick` != "'~is_login()~'" AND `level` < "'~user.level~'"')|length %}
+    {% set per = '10' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+    {% set p=get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    {% if total == '0' %}
+      <div class="menu">Trống!</div>
+    {% else %}
+  {% set data = query_select_table('users','*','WHERE `nick` != "'~is_login()~'" AND `level` < "'~user.level~'" ORDER BY id ASC LIMIT '~st~','~per) %}
+      {% for user in data %}
+        {% if user.id %}
+    <div class="mainblok" style="margin-top:0;border-top:0;border-left:0;border-right:0">
+    <div class="postprofile">
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img src="{{getAvtUser(user.nick)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser imgAvt-{{user.nick}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/manager/user/{{user.nick}}">{{maunick(user.nick)}}</a></div>
+          <div>ID: {{user.id}}, Level: {{user.level}}{% if user.level < 0 %}, Đang bóc lịch{% endif %}</div>
+        </div>
+      </div>
+  </div>
+  </div>
+        {% endif %}
+      {% endfor %}
+  {% endif %}
+  {{paging('?page=',p,page_max)|replace({'/?':'?'})|raw}}
+  {% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+<script>
+  var user = [];
+  var data = "{% for user in select_table_data('users', 'id', 'asc') %}{% if user.id %}{{user.nick}} @ {% endif %}{% endfor %}";
+  var sp = data.split("@");
+  for(i in sp){
+    user[i] = sp [i].trim();
+  }
+  var input = document.querySelector("#search-user");
+  autocomplete(input,user)
+</script>
+{#===END Q.L THÀNH VIÊN===#}
+{% else %}
+{#=====BẢNG QUẢN TRỊ=====#}
+	{% if user.level >= '120' %}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-tachometer" aria-hidden="true"></i> <b>Bảng quản trị</b></div>
+  <div class="list1"><i class="fa fa-pencil-square" aria-hidden="true"></i> <a href="/manager/post">Viết bài mới</a></div>
+  <div class="list1"><i class="fa fa-cube" aria-hidden="true"></i> <a href="/manager/created-category">Quản lý chuyên mục</a></div>
+  <div class="list1"><i class="fa fa-rss" aria-hidden="true"></i> <a href="/category">Danh sách bài viết</a></div>
+  <div class="list1"><i class="fa fa-users" aria-hidden="true"></i> <a href="/manager/user">Quản lý thành viên</a></div>
+  <div class="list1"><i class="fa fa-newspaper-o" aria-hidden="true"></i> <a href="/news">Quản lý tin tức</a></div>
+  <div class="list1"><i class="fa fa-superpowers" aria-hidden="true"></i> <a href="/manager/league">Quản lý mùa giải</a></div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+	{% else %}
+		{{redirect('/error')}}
+	{% endif %}
+{#===END BẢNG QUẢN TRỊ===#}
+{% endif %}
+{#===============================================================================#}
+{{block('end')}}
+{% else %}
+	{{redirect('/')}}
+{% endif %}

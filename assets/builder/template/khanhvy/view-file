@@ -1,0 +1,222 @@
+{% use '_layout' %}
+{% set host = 'http://forew.7m.pl/up-dorew' %}
+{% set xtgem = 'http://dorew.uiwap.com/storage' %}
+{% set uri = get_uri_segments() %}
+{% from '_bbcode' import bbcode %}
+{% from '_functions' import ago,rwurl,paging,checkExtension,size %}
+{% from '_users' import maunick,getAvtUser %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+
+{% set id = uri[1] %}
+{% set data = select_table_row_data('file', 'id', id) %}
+{% set blog = select_table_row_data('blog', 'id', data.blogid) %}
+{% set cat = select_table_row_data('category', 'id', blog.category) %}
+
+{% set blogid = data.blogid %}
+{% if id and data.blogid %}{% set title = 'Xem File: '~data.filename %}{% else %}{% set title = 'Lỗi!' %}{% endif %}
+
+{% set view_file_ipfs %}
+{#<div class="menu">#}
+  <center>
+    <div style="margin:5px;" id="dai"></div>
+    <div style="padding:15px;max-width:500px;visibility:hidden;">
+      {% if checkExtension(data.filename) == "file-image-o" %}
+      <img id="ipreview" style="max-width:100%;" width="400" src="" />
+      {% elseif checkExtension(data.filename) =="file-video-o" or checkExtension(data.filename) =="file-audio-o" %}
+      <video style="max-width:100%;" width="400" controls><source src="" type="video/mp4"></video>
+      {% endif %}
+    </div>
+    {% if checkExtension(data.filename) == "file-image-o" %}
+    <button style="margin:5px;padding:12px 25px;font-size:16px;" onclick="previewImg('{{data.filename}}', '{{data.filecate}}', '{{data.passphrase}}')"><b><i class="fa fa-play-circle"></i> Preview</b></button>
+    {% elseif checkExtension(data.filename) == "file-video-o" or checkExtension(data.filename) == "file-audio-o" %}
+    <button style="margin:5px;padding:12px 25px;font-size:16px;" onclick="previewVideoURL('{{data.filename}}', '{{data.filecate}}', '{{data.passphrase}}')"><b><i class="fa fa-play-circle"></i> Preview</b></button>
+    {% endif %}
+    <button style="margin:5px;padding:12px 25px;font-size:16px;" onclick="downloadURL('{{data.filename}}', '{{data.filecate}}', '{{data.passphrase}}')"><b><i class="fa fa-download"></i> Download</b></button>
+    <br/><br/>
+  </center>
+{#</div>#}
+<script src="/app.js.get?name=file-ipfs&id={{data.id}}"></script>
+{% endset %}
+
+{{block('head')}}
+{% set w3_main4px_content %}
+{% if id and data.blogid %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/"><span itemprop="title"><i class="fa fa-home" aria-hidden="true"></i></span></a></span></li>
+  <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/category/{{cat.id}}-{{cat.slug}}/"><span itemprop="title">{{cat.name}}</span></a></span></li>
+  {#<li><a>Bảo trì</a></li>#}
+</ul>
+<style>.nendl{background:#2D3BFD;border:2px solid #2D3BFD;padding:4px;width:45%;text-align:center;border-radius:2px}</style>
+{#{% set author = data.author %}#}
+{% set author = blog.author %}
+{% set time = data.time %}
+{% set filecate = data.filecate %}
+{% set pricefile = data.price %}
+{% set filesize = data.filesize %}
+{% set filename = data.filename %}
+{% set condition = data.condition %}
+{% set salseoff = data.saleoff %}
+{% if select_table_row_data('file', 'id', condition).blogid and is_login() %}
+  {% set data_cond = select_table_row_data('file', 'id', condition) %}
+  {% set mua_cond = data_cond.mua %}
+  {% set listdamua_cond = mua_cond|split('.') %}
+  {% if is_login() in listdamua_cond %}
+    {% set priceold = data_cond.price %}
+    {% set pricefile = saleoff|default(10) %}
+  {% endif %}
+{% endif %}
+{% set mua = data.mua %}
+{% set filetype = data.filetype %}
+{% set damua = false %}
+{% set act = get_get('act') %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set dauthor = select_table_row_data('users', 'nick', author) %}
+{% set listdamua = mua|split('.') %}
+{% set demnguoimua = mua|split('.')|length-1 %}
+{% if is_login() and is_login() in listdamua or is_login() == author %}
+  {% set damua = true %}
+{% endif %}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700"><i class="fa fa-{{checkExtension(data.filename)}}" aria-hidden="true"></i> {{data.filename}}</div>
+  {% if is_login() and act in ['mua','delete'] %}
+  <div style="text-align:left">
+    {% if act == 'mua' %}
+  	  {% if damua == true %}
+    <div class="menu"><p>Bạn <b>đã mua</b> file này rồi!</p></div>
+    <div class="menu"><a href="/view-file/{{id}}">Tải về</a></div>
+      {% else %}
+    	{% if user.xu >= pricefile %}
+    	  {% if request_method()|lower == 'post' %}
+    		{% set newlistmua = mua ~ is_login() ~ '.' %}
+    		{% do update_row_table('file', 'mua', newlistmua, 'id', id) %}
+    		{% do update_row_table('users', 'xu', (user.xu-pricefile), 'nick', is_login()) %}
+    		{% do update_row_table('users', 'xu', (dauthor.xu+pricefile), 'nick', author) %}
+    		{% do insert_row_array_table('mail',{'sender_receiver':author~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' đã mua tập tin với giá [b]'~pricefile|number_format~' xu[/b] trong một chủ đề của bạn! ([url=/view-file/'~id~']xem thêm[/url])','time':'now'|date('U'),'view':'no'}) %}
+    		{{redirect('/view-file/'~id)}}
+    	  {% endif %}
+    <div class="menu" style="text-align:center">
+      <p>Bạn có muốn mua file này?</p>
+      <p></p>
+      <p>Hiện tại bạn có <b>{{user.xu|number_format}}</b>, giá của file là <b>{{pricefile|number_format}} xu</b>. Sau khi mua, bạn còn <b>{{(user.xu-pricefile)|number_format}} xu</b>.
+      </p>
+      <form action="" method="post">
+        <div style="text-align:center">
+          <input type="hidden" name="muaf" value="1">
+          <button type="submit" class="button"><i class="fa fa-shopping-basket" aria-hidden="true"></i> Xác nhận</button>
+        </div>
+      </form>
+    </div>
+    	{% else %}
+    <div class="menu"><p>Bạn có {{user.xu|number_format}}, bạn <b>không đủ xu</b> để mua file này!</p></div>
+    	{% endif %}
+      {% endif %}
+    {% else %}
+  	  {% if user.level >= '120' %}
+    	{% if request_method()|lower == "post" %}
+    	  {% set delete = get_post('delete') %}
+    		{% if delete == '1' %}
+    		  {% do delete_row_table('file', 'id', id) %}
+    		  {{redirect('/forum/'~blog.id~'-'~blog.slug~'.html')}}
+    		{% endif %}
+    	{% endif %}{#end request#}
+    <div class="list1">Bạn có muốn xoá file:
+      <a href="/view-file/{{id}}">này</a><br/>
+      <form action="" method="post"><input type="hidden" name="delete" value="1">
+        <button type="submit" class="btn btn-primary btn-block">Xác nhận</button>
+      </form>
+    </div>
+  	  {% else %}
+    <div class="rmenu">Bạn không có quyền thực hiện thao tác này!</div>
+      {% endif %}
+    {% endif %}
+  </div>
+  <div class="topmenu"><a href="/forum/{{blog.id}}-{{blog.slug}}.html">Quay lại bài viết</a></div>
+  {% else %}
+ 	{% if data.status != 'public' and not is_login() %}
+  <div class="rmenu">Vui lòng đăng nhập để mua file này!</div>
+  	{% else %}
+  <div class="menu" style="text-align:center">
+  {#==========================================================================#}
+  	  {% if data.status == 'public' or data.price == 0 %}
+        {{view_file_ipfs}}
+  	  {% else %}
+        {% if damua == true %}
+          {% if data.type == 'ipfs' %}{{view_file_ipfs}}{% else %}
+    <center><a href="{% if id <'99' %}http://dorew.uiwap.com/storage/{{blogid }}/{{filecate}}/{{filename}}{% else %}https://file.numeron.ml/6://F{{filecate}}_{{filename}}{% endif %}"><div class="nendl"><b><font color="#ffffff"><i class="fa fa-cloud-download" aria-hidden="true"></i> Download file ({{size(filesize)}})</font></b></div></a></center>
+          {% endif %}
+        {% else %}
+    <center>
+      <a href="/view-file/{{id}}?act=mua"><div class="nendl"><b><font color="#ffffff"><i class="fa fa-shopping-basket" aria-hidden="true"></i> Mua ({{pricefile}} xu)</font></b></div></a>
+          {% if demnguoimua > 0 %}
+      <div style="padding:6px">
+        {{demnguoimua}} người đã mua
+      </div>
+          {% endif %}
+    </center>
+        {% endif %}
+  	  {% endif %}
+      {% if user.level >= '120' %}
+    <br/>
+    <a href="/view-file/{{id}}?act=delete"><button><b><i class="fa fa-trash" aria-hidden="true"></i> Xóa</b></button></a>
+      {% endif %}
+  </div>
+    {% endif %}
+  <div class="menu" style="text-align:left">
+    <div>
+      <i class="fa fa-bars"></i> Danh mục: <a href="/category/{{cat.id}}-{{cat.slug}}/">{{cat.name}}</a>
+    </div>
+    <div>
+      <i class="fa fa-book" aria-hidden="true"></i> Bài viết: <a href="/forum/{{blog.id}}-{{blog.slug}}.html">{{html_decode(blog.title)}}</a>
+    </div>
+    <div>
+      <i class="fa fa-usd" aria-hidden="true"></i> Nhóm tệp: {% if data.status == 'public' or data.price == 0 %}<span style="font-weight:700;color:red">Miễn phí</span>{% else %}<span style="font-weight:700;color:red">Trả phí</span>, 
+      Giá: {% if priceold != pricefile and data_cond.blogid %}<s>{{priceold|number_format}} xu</s> {% endif %}<b>{{pricefile|number_format}} xu</b>{% endif %}
+      {% if demnguoimua >'0' %}
+      <div>
+        <i class="fa fa-address-book-o" aria-hidden="true"></i> Đã mua:
+        {% for ia in listdamua %}
+          {% if ia != null %}
+            <a href="/user/{{ia}}"><img src="{{getAvtUser(ia)}}" class="imgAvtUser" width="20px"/></a>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div>
+      <i class="fa fa-user-circle" aria-hidden="true"></i> Người Upload: <img src="{{getAvtUser(author)}}" class="imgAvtUser" width="20px"/><a href="/user/{{author}}">{{maunick(author)}}</a>
+    </div>
+    <div>
+      <i class="fa fa-calendar" aria-hidden="true"></i> Ngày đăng: <b>{{ago(time)}}</b>
+    </div>
+    <div>
+      <i class="fa fa-info-circle" aria-hidden="true"></i> Dung lượng: <b>{{size(filesize)}}</b>
+    </div>
+  </div>
+</div>
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-share-alt-square" aria-hidden="true"></i> Chia sẻ</div>
+  <div class="menu">
+    <table style="border:none;width:100%">
+      <tr>
+        <td class="e1">Link:</td><td class="w3-left-align e2"><input type="text" value="{{current_url()}}" class="form-control"/></td>
+      </tr>
+      <tr>
+        <td class="e1">BBCode:</td><td class="w3-left-align e2"><input type="text" value="[url={{current_url()}}]{{filename}}[/url]" class="form-control"/></td>
+      </tr>
+      <tr>
+        <td class="e1">Markdown:</td><td class="w3-left-align e2"><input type="text" value="[{{filename}}]({{current_url()}})" class="form-control"/></td>
+      </tr>
+    </table>
+  </div> 
+  {#==========================================================================#}
+  {% endif %}
+</div>
+{% else %}
+<div class="mainblok">
+  <div class="phdr">Thông tin</div>
+  <div class="rmenu">Tập tin này không tồn tại hoặc đã bị xoá!</div>
+</div>
+{% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+{{block('end')}}

@@ -1,0 +1,55 @@
+{# danh sách tin nhắn #}
+{% block mail_list %}
+	{% from '_functions' import ago,paging %}
+	{% from '_users' import maunick,getAvtUser %}
+	{% set table_name = 'mail' %}
+	{# table: mail - column: id, sender_receiver, nick, content, time, view #}
+	{% set sender = select_table_row_data('users','nick',is_login()) %}
+	{% set data = sender.mail_list|split('.') %}
+	{% set total = data|length-1 %}
+  	{% set per = '10' %}
+  	{% set page_max = total//per %}
+  	{% if total//per != total/per %}
+    	{% set page_max = total//per+1 %}
+  	{% endif %}
+  	{% set p = get_get('page')|default(1) %}
+  	{% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  	{% if p > page_max %}{% set p = page_max %}{% endif %}
+  	{% set st=p*per-per %}
+  	{% if total <= '0' %}
+      <div class="mainblok"><div class="menu">Danh sách trống</div></div>
+  	{% else %}
+      	<div style="max-height:500px;overflow-y:auto"class="mainblok">
+		{#{% for mail in data|slice(st,per) %}#}
+  		{% for mail in data %}
+  			{% set receiver = select_table_row_data('users','nick',mail) %}
+        	{% set sr = select_table_where_data('mail', 'sender_receiver', is_login()~'_'~mail,'time','asc') %}
+  			{% if receiver.id and receiver.nick != select_table_row_data('system','id',1).bot %}
+      <div class="mainblok" style="margin-top:0;margin-left:0;margin:right:0;border-top:0;border-left:0">
+        		{% if receiver.on < ('now'|date('U')-300) %}
+					{% set on_off = 'off' %}
+ 					{% set color_on_off = 'red' %}
+                {% else %}
+					{% set on_off = 'on' %}
+ 					{% set color_on_off = 'green' %}
+				{% endif %}
+    <div class="postprofile"{% if sr|last.view != 'yes' and sr|last.nick != is_login() %} style="background-color:#ffffc8"{% endif %}>
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img src="{{getAvtUser(mail)}}" width="38" height="38" alt="{{receiver.name}}" class="imgAvtUser imgAvt-{{mail}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{mail}}">{{maunick(mail)}}</a> <span style="color:{{color_on_off}}"><i class="fa fa-toggle-{{on_off}}" aria-hidden="true"></i></span></div>
+          <div>({{ago(sr|last.time)}})</div>
+        </div>
+      </div>
+        <p>
+          {{sr|last.content|slice(0,150)}}{% if sr|last.content|length-1 > '150' %}...{% endif %}
+        </p>
+      <div class="sub"></div>
+      <p><a href="/mail/{{mail}}" style="font-weight:700">Hội thoại</a> ({{sr|length-1}})</p>
+    </div>
+      </div>{# end div.mainblok #}
+  			{% endif %}
+  		{% endfor %}
+		</div>
+  	{% endif %}
+{% endblock %}

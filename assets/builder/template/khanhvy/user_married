@@ -1,0 +1,390 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% use '_user_game' %}
+
+{% from '_functions' import ago,rwurl,paging %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_bbcode' import bbcode %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set info_system_bot = select_table_row_data('users', 'nick', system_bot) %}
+
+{% macro add(key,k,v) %}
+	{% set user = select_table_row_data('users', 'nick', is_login()) %}
+	{% set data = select_table_row_data('user_married', user.relationship, user.nick) %}
+	{% set save_data = data[key]|json_decode|merge({(k):v})|json_encode %}
+	{% do update_row_table('user_married', key, save_data, user.relationship, user.nick) %}
+	{{save_data}}
+{% endmacro %}
+{% macro get(key,v) %}{% spaceless %}
+	{% set user = select_table_row_data('users', 'nick', is_login()) %}
+	{% set data = select_table_row_data('user_married', user.relationship, user.nick) %}
+	{{data[key]|json_decode[v]}}
+{% endspaceless %}{% endmacro %}
+
+{% set table_name = 'user_married' %}
+{% set url = get_uri_segments() %}
+{% set act = get_get('act') %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set relationship = user.relationship %}
+{% if relationship not in ['wife','husband'] %}
+	{% set title = 'Khu lễ đường' %}
+	{% set relationship = 'single' %}
+	{% set be_proposed = select_table_row_data('users', 'nick', get_get('nick')) %}
+	{% set proposing_to = select_table_row_data('users', 'nick', user.propose) %}
+{% else %}
+	{% set title = 'Nhà đôi' %}
+	{% set sweetheart = select_table_row_data('user_married', relationship, is_login()) %}
+{% endif %}
+{% set rela = select_table_row_data(table_name, 'wife', is_login()) %}
+
+{% if not is_login() %}{{redirect('/error')}}{% endif %}
+{% if relationship in ['wife','husband'] and url[2] == 'love-days' %}
+	{{block('love_days')}}
+{% else %}
+{{block('head')}}
+{#thông tin nhẫn#}
+{% set ring_name = ['Nhẫn vòng hoa','Nhẫn kẹo','Nhẫn hoa bạc','Nhẫn Ruby','Nhẫn bạc','Nhẫn kim cương','Nhẫn cánh pha lê','Nhẫn uyên ương','Nhẫn thiên nga'] %}
+{% set ring_price = [6999, 7599, 7999, 15999, 39999, 69999, 143000, 39999, 99999] %}
+{% set ring_deposit = [3999, 5999, 6999, 10999, 15999, 39999, 120999, 15999, 59999] %}
+{% set ring_name_time = ['Cặp đôi mới cưới','Cặp đôi hạnh phúc','Cặp đôi mặn nồng','Tình bền keo sơn'] %}
+{% set ring_time = [30, 120, 365, 365*2] %}
+{#thông tin quà tặng#}
+{% set gift_name = ['Bánh kem sinh nhật','Hoa hồng','Ô tô','Lời tỏ tình','Nụ hôn','Tai phone','Túi xách','Lọ tình yêu','Bikini','Trà sữa','Hộp trái tim','Dầu thơm','Gà con','Kẹo tình yêu','Cây thông','Người tuyết','Chúc tết','Chậu mai','Nhắn nhủ yêu thương','Máy bay tình yêu','Quà valentine'] %}
+{% set gift_price = 5000 %}
+{#end quà tặng#}
+{% if relationship == 'single' %}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><b><i class="fa fa-venus-mars" aria-hidden="true"></i> Khu lễ đường</b></div>
+  {% if act == 'broke-off-engagement' and be_proposed.nick %}
+  	{% do delete_row_table(table_name, 'id', rela.id) %}
+  	{% do update_row_array_table('users', {'propose':NULL,'ring':NULL}, 'nick', is_login()) %}
+  	{{redirect('/user/'~be_proposed.nick)}}
+  {% elseif act == 'accept-engagement' and be_proposed.nick %}
+  	{% if be_proposed.propose == is_login() %}
+  	  {#huỷ lời cầu hôn#}
+  	  {% for mail in query_select_table('mail','*','WHERE `sender_receiver` = "'~is_login()~'_'~system_bot~'" AND `type` = "married"') %}
+  		{% do delete_row_table('mail', 'id', mail.id) %}
+  	  {% endfor %}
+  	  {% for mail in query_select_table('mail','*','WHERE `sender_receiver` = "'~be_proposed.nick~'_'~system_bot~'" AND `type` = "married"') %}
+  		{% do delete_row_table('mail', 'id', mail.id) %}
+  	  {% endfor %}
+  	  {% for mail in query_select_table('mail','*','WHERE `sender_receiver` = "'~user.propose~'_'~system_bot~'" AND `type` = "married"') %}
+  		{% do delete_row_table('mail', 'id', mail.id) %}
+  	  {% endfor %}
+  	  {% do query_update_table(table_name, {'husband':NULL}, 'WHERE `wife` != "'~user.propose~'"') %}
+  	  {#end huỷ lời cầu hôn#}
+      {% set rela1 = select_table_row_data(table_name, 'wife', be_proposed.nick) %}
+  	  {% do update_row_array_table('users', {'relationship':'husband','propose':NULL,'ring':NULL}, 'nick', is_login()) %}
+  	  {% do update_row_array_table('users', {'xu':be_proposed.xu-ring_price[rela1.ring-1]+ring_deposit[rela1.ring-1],'relationship':'wife','propose':NULL,'ring':NULL}, 'nick', be_proposed.nick) %}
+  	  {% do update_row_array_table(table_name,{'husband':is_login(),'time_start':'now'|date('U'),'confirm':1},'id',rela1.id) %}
+  	  {% do insert_row_array_table('mail',{'sender_receiver':be_proposed.nick~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' vừa chấp nhận lời cầu hôn của bạn! Chúc mối quan hệ của 2 bạn như Tình bền keo sơn, Trăm năm hạnh phúc!','time':'now'|date('U'),'view':'no'}) %}
+      {#{% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' vừa chấp nhận lời cầu hôn từ @'~be_proposed.nick~' ! Chúc mối quan hệ của 2 bạn như Tình bền keo sơn, Trăm năm hạnh phúc!'}) %}#}
+  	  {{redirect('/user/'~be_proposed.nick)}}
+  	{% else %}
+  <div class="rmenu"><b>{{maunick(be_proposed.nick)}}</b> vẫn đang muốn độc thân hoặc họ đã đính hôn với một ai khác không phải bạn!</div>
+    {% endif %}
+  {% elseif act == 'refuse-marriage-proposal' and be_proposed.nick %}
+  	{% if be_proposed.propose == is_login() %}
+  	  {#từ chối lời cầu hôn#}
+  	  {% for mail in query_select_table('mail','*','WHERE `sender_receiver` = "'~is_login()~'_'~system_bot~'" AND `type` = "married" AND `nick` = "'~be_proposed.nick~'"') %}
+  		{% do delete_row_table('mail', 'id', mail.id) %}
+  	  {% endfor %}
+      {% do update_row_array_table('users', {'propose':NULL,'ring':NULL}, 'nick', be_proposed.nick) %}
+  	  {% set rela1 = select_table_row_data(table_name, 'wife', be_proposed.nick) %}
+      {% do delete_row_table(table_name, 'id', rela1.id) %}
+  	  {% do insert_row_array_table('mail',{'sender_receiver':be_proposed.nick~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' đã từ chối lời cầu hôn của bạn!','time':'now'|date('U'),'view':'no'}) %}
+  	  {{redirect('/user/'~be_proposed.nick)}}
+  	  {#end từ chối lời cầu hôn#}
+    {% else %}
+  <div class="rmenu"><b>{{maunick(be_proposed.nick)}}</b> đã huỷ lời mời với bạn hoặc họ đã đính hôn với một ai khác không phải bạn!</div>
+    {% endif %}
+  {% else %}
+  {% if proposing_to.id %}
+  	  {% set ring = user.ring %}
+  	  {% set price = ring_price[ring-1] %}
+  	  {% set ring_propose = ring_name[ring-1] %}
+  <div class="menu">
+    <p>
+      Bạn đang cầu hôn <b><a href="/user/{{proposing_to.nick}}">{{maunick(proposing_to.nick)}}</a></b>, thông tin:
+      <br/>- Tên: {{ring_propose}}
+      <br/>- Giá: {{price|number_format}} xu
+    </p>
+    <p>
+      <b>Thao tác:</b>
+      <br/>- <a href="?act=broke-off-engagement&nick={{user.propose}}">Huỷ hôn</a>
+    </p>
+  </div>
+  {% elseif be_proposed.nick == user.nick %}
+  <div class="rmenu">Bạn không thể cầu hôn với chính bản thân bạn!</div>
+  {% elseif be_proposed.nick == system_bot %}
+  <div class="rmenu">Bạn không thể xác lập mối quan hệ hôn nhân với <b>{{maunick(be_proposed.nick)}}</b>!</div>
+  {% else %}
+  {% if be_proposed.id and be_proposed.relationship not in ['wife','husband'] %}
+  	{% if request_method()|lower == 'post' %}
+  	  {% set ring = get_post('propose') %}
+  	  {% set price = ring_price[ring-1] %}
+  	  {% set ring_propose = ring_name[ring-1] %}
+  	  {% if proposing_to.id %}
+  <div class="rmenu">Bạn không thể cầu hôn người khác trong khi chưa huỷ hôn với <a href="/user/{{proposing_to.nick}}">{{maunick(proposing_to.nick)}}</a></div>
+  	  {% elseif ring not in 1..ring_price|length %}
+  <div class="rmenu">Bạn chưa chọn nhẫn cưới!</div>
+  	  {% elseif user.xu < price %}
+  <div class="rmenu">Tài sản của bạn không đủ để mua nhẫn <b>{{ring_propose}}</b>!</div>
+	  {% else %}
+		{% do update_row_array_table('users', {'xu':user.xu-ring_deposit[ring-1],'propose':be_proposed.nick,'ring':ring}, 'nick', is_login()) %}
+		{% set married_row = {'wife':is_login(),'husband':be_proposed.nick,'ring':ring} %}
+		{% if get_row_count(table_name, {'wife':is_login(), 'operator':'='}) == 0 %}
+			{% do insert_row_array_table(table_name,married_row) %}
+		{% else %}
+  			{% do update_row_array_table(table_name,{'husband':be_proposed.nick,'ring':ring},'wife',is_login()) %}
+		{% endif %}
+  		{% do insert_row_array_table('mail',{'sender_receiver':be_proposed.nick~'_'~system_bot,'nick':is_login(),'content':'@'~is_login()~' vừa cầu hôn bạn với [b]'~ring_propose~'[/b]!','time':'now'|date('U'),'view':'no','type':'married'}) %}
+  <div class="gmenu">
+    Bạn đã gửi lời mời cho <b>{{maunick(be_proposed.nick)}}</b> thành công! Hãy chờ người ấy xác nhận lời cầu hôn của bạn! Trong thời gian chờ đợi phản hồi từ họ, bạn không thể cầu hôn bất kì một ai khác, trừ khi bạn huỷ hôn.
+    <br/><b>Thông tin nhẫn:</b>
+    <br/>- Tên: <b>{{ring_propose}}</b>
+    <br/>- Giá: <b>{{price|number_format}} xu</b>
+  </div>
+  	  {% endif %}
+  <div class="menu"><a href="/users/married?nick={{be_proposed.nick}}">[ Quay lại ]</a></div>
+  	{% else %}
+  <form method="post">
+  <div class="gmenu">Chọn nhẫn đính hôn</div>
+  {% for ring in ring_price %}
+	{% set ring_level = loop.index %}
+  <div class="d-menu">
+    <table style="width:100%">
+      <td width="70">
+        <input type="radio" value="{{ring_level}}" name="propose">
+        <img src="https://dorew-site.github.io/assets/ring/{{ring_level}}.jpg" width="40" height="40"><br/>
+      </td>
+      <td style="text-align:left">
+        <b>{{ring_name[ring_level-1]}}</b><br/>
+        Giá: <span class="number">{{ring|number_format}} Xu</span>
+      </td>
+    </table>
+  </div>
+  {% endfor %}
+  <div class="menu propose w3-center">
+    Bạn có muốn gửi lời mời kết hôn đến với <a href="/user/{{be_proposed.nick}}">{{maunick(be_proposed.nick)}}</a> không?
+    <p>
+      <button type="submit" class="btn btn-warning btn-block">Xác nhận</button>
+    </p>
+  </div>
+  </form>
+  <style>.propose:hover{color:red;font-weight:700}</style>
+  	{% endif %}
+  {% elseif be_proposed.relationship in ['wife','husband'] %}
+  <div class="rmenu">Người dùng này đã kết hôn rồi!</div>
+  {% else %}
+  <div class="rmenu">Tài khoản của người được cầu hôn không tồn tại!</div>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{% else %}
+  	{% set sweetheart = select_table_row_data('user_married', user.relationship, user.nick) %}
+	{% set ring_list = sweetheart.ring_list|json_decode %}
+	{% set gift_list = sweetheart.gift_list|json_decode %}
+	{% set gift_total = 0 %}
+	{% for rl in 1..9 %}{% set rn = ring_list['r'~rl] %}{% if rn > 0 %}{% set gift_total = gift_total + 1 %}{% endif %}{% endfor %}
+	{% for gl in 1..21 %}{% set gn = gift_list['g'~gl] %}{% if gn > 0 %}{% set gift_total = gift_total + 1 %}{% endif %}{% endfor %}
+	{% set gift_total = gift_total|trim %}
+    {% if sweetheart.wife == user.nick %}
+  	  {% set married_person = sweetheart.husband %}
+    {% else %}
+  	  {% set married_person = sweetheart.wife %}
+    {% endif %}
+    {% set married = select_table_row_data('users','nick',married_person) %}
+	{% set together = rounding('ceil',('now'|date('U')-sweetheart.time_start)//(60*60*24)) %}
+	{% if together in 0..30 %}{% set time_end = 1 %}{% elseif together in 31..120 %}{% set time_end = 2 %}{% elseif together in 121..365 %}{% set time_end = 3 %}{% else %}{% set time_end = 4 %}{% endif %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/user">Trang cá nhân</a></li>
+  <li><a href="/users/married">Nhà của bạn</a></li>
+</ul>
+<style>@font-face{font-family:fiolex;src:url('https://dorew-site.github.io/assets/ring/body/fiolex-girl.ttf');font-weight:normal;font-style:normal;}</style>
+
+{% if act == 'divorce' %}
+  	{% do update_row_array_table('users', {'relationship':'single'}, 'nick', is_login()) %}
+  	{% do update_row_array_table('users', {'relationship':'single'}, 'nick', married.nick) %}
+	{% do insert_row_array_table('mail',{'sender_receiver':married.nick~'_'~system_bot,'nick':system_bot,'content':'Bạn và @'~is_login()~' đã ly hôn!','time':'now'|date('U'),'view':'no'}) %}
+	{% do delete_row_table(table_name, 'id', sweetheart.id) %}
+	{{redirect('/user/'~married.nick)}}
+{% endif %}
+
+{% set w3_twothird_content %}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700">Thông tin nhà đôi</div>
+  <div class="menu" style="text-align:center">
+    <p>Đã kết hôn với <a href="/user/{{married.nick}}">{{maunick(married.nick)}}</a></p>
+    <p>
+      <a href="/user/{{user.nick}}"><img src="{{getAvtUser(user.nick)}}" loading="lazy" class="imgAvtUser" width="30px"/></a>
+      <img src="https://dorew-site.github.io/assets/ring/time/{{time_end}}.jpg" style="width:30px;height:30px"/>{#<img src="https://dorew-site.github.io/assets/ring/{{sweetheart.ring}}.jpg" style="width:30px;height:30px"/>#}
+      <a href="/user/{{married.nick}}"><img src="{{getAvtUser(married.nick)}}" loading="lazy" class="imgAvtUser" width="30px"/></a>
+    </p>
+    <p style="color:#444;font-size:12px">
+      {#{{sweetheart.time_start|date('H:i, d/m/Y')}}#}{{ring_name_time[time_end-1]}}
+    </p>
+    <p style="font-size:20px"><a href="/users/married/love-days" title="Đồng hồ tình yêu" style="font-family:'fiolex',cursive;color:red">Đồng hồ tình yêu</a></p>
+  </div>
+</div>
+<div class="mainblok">
+  {% set type = get_get('type') %}
+  {% if sweetheart.ring_list in ['',null,NULL] %}
+  	{% do update_row_array_table(table_name, {'ring_list':'{"r'~sweetheart.ring~'":1}','gift_list':'{"g1":0}'}, user.relationship, user.nick) %}
+  {% endif %}
+  {% if act in ['ring','gift'] %}
+  <div class="phdr">Cửa hàng tình yêu</div>
+  	{% if request_method()|lower == 'post' %}
+  		{% set gift = get_post('gift') %}
+  		{% if act == 'gift' %}
+  			{% if gift in 1..21 %}{% set select = true %}{% endif %}
+  		{% else %}
+  			{% if gift in 1..9 %}{% set select = true %}{% endif %}
+  		{% endif %}
+  		{% if gift == true %}
+  			{% if act == 'gift' %}
+  				{% set gn = gift_name[gift-1] %}
+  				{% set gp = gift_price %}
+  			{% else %}
+  				{% set gn = ring_name[gift-1] %}
+  				{% set gp = ring_price[gift-1] %}
+  			{% endif %}
+  			{% if user.xu > gp %}
+  				{% if act == 'ring' and gp > ring_price[sweetheart.ring-1] %}
+  					{% do update_row_array_table(table_name, {'ring':gift}, 'id', sweetheart.id) %}
+  				{% endif %}
+  				{% do update_row_array_table('users', {'xu':user.xu-gp}, 'nick', user.nick) %}
+    			{% do update_row_array_table('users', {'xu':married.xu+gp}, 'nick', married.nick) %}
+  				{% do insert_row_array_table('mail',{'sender_receiver':married.nick~'_'~system_bot,'nick':is_login(),'content':'Bạn vừa nhận được [b]'~gn~'[/b] từ người yêu của bạn - @'~is_login()~' !','time':'now'|date('U'),'view':'no'}) %}
+  				{% do _self.add(act~'_list',act|slice(0,1)~''~gift,_self.get(act~'_list',act|slice(0,1)~''~gift)|trim+1) %}
+  <div class="gmenu">Bạn đã gửi thành công món quà <b style="color:red">{{gn}}</b> trị giá <b>{{gp|number_format}} xu</b> đến nửa kia của mình! Bạn có muốn tiếp tục mua hàng không?</div>
+  			{% else %}
+  <div class="rmenu">Thanh toán thất bại! Tài sản của bạn không đủ để mua <b style="color:red">{{gn}}</b> ({{gp|number_format}} xu). Hiện tại bạn có <b>{{user.xu|number_format}} xu</b>!</div>
+  			{% endif %}
+  		{% else %}
+  <div class="rmenu">Bạn chưa chọn quà tặng hoặc món đồ mà bạn chọn không có trong cửa hàng!</div>
+  		{% endif %}
+  <div class="menu"><a href="?act={{get_get('act')}}">[ Quay lại ]</a></div>
+  	{% else %}
+  <form method="post">
+    <div class="gmenu">Chọn quà tặng [{% if act == 'gift' %}<b>Loại 1</b> | <a href="?act=ring">Loại 2</a>{% else %}<a href="?act=gift">Loại 1</a> | <b>Loại 2</b>{% endif %}]</div>
+  {% if act == 'ring' %}
+  {% for ring in ring_price %}
+	{% set ring_level = loop.index %}
+  <div class="d-menu">
+    <table style="width:100%">
+      <td width="70">
+        <input type="radio" value="{{ring_level}}" name="gift"{% if type == ring_level %} checked{% endif %}>
+        <img src="https://dorew-site.github.io/assets/ring/{{ring_level}}.jpg" width="40" height="40"><br/>
+      </td>
+      <td style="text-align:left">
+        <b>{{ring_name[ring_level-1]}}</b><br/>
+        Giá: <span class="number">{{ring|number_format}} Xu</span>
+      </td>
+    </table>
+  </div>
+  {% endfor %}
+  {% else %}
+  {% for gift in gift_name %}
+	{% set gift_id = loop.index %}
+  <div class="d-menu">
+    <table style="width:100%">
+      <td width="70">
+        <input type="radio" value="{{gift_id}}" name="gift"{% if type == gift_id %} checked{% endif %}>
+        <img src="https://dorew-site.github.io/assets/gift/{{gift_id}}.jpg" width="40" height="40"><br/>
+      </td>
+      <td style="text-align:left">
+        <b>{{gift}}</b><br/>
+        Giá: <span class="number">{{gift_price|number_format}} Xu</span>
+      </td>
+    </table>
+  </div>
+  {% endfor %}
+  {% endif %}
+  <div class="menu propose w3-center">
+    <button type="submit" class="btn btn-warning btn-block">Tặng quà cho người yêu</button>
+    </div>
+  </form>
+  	{% endif %}
+  {% else %}
+  <div class="phdr">Quà tặng</div>
+  <div class="menu">
+  	{% if gift_total <= 0 %}
+		Rương nhà trống rỗng!
+    {% else %}
+    <ul class="category">
+    	{% for rl in 1..9 %}{% set rn = ring_list['r'~rl] %}{% if rn > 0 %}
+      <li class="listgift bg-gift">
+        <a href="?act=ring&type={{rl}}"><img src="https://dorew-site.github.io/assets/ring/{{rl}}.jpg" class="img_to"></a>
+        <br/><small><span class="badge">{{rn|default(0)}}</span></small>
+      </li>
+        {% endif %}{% endfor %}
+    	{% for gl in 1..21 %}{% set gn = gift_list['g'~gl] %}{% if gn > 0 %}
+      <li class="listgift bg-gift">
+        <a href="?act=gift&type={{gl}}"><img src="https://dorew-site.github.io/assets/gift/{{gl}}.jpg" class="img_to"></a>
+        <br/><small><span class="badge">{{gn|default(0)}}</span></small>
+      </li>
+        {% endif %}{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endset %}
+{{block('w3_twothird')}}
+
+{% set w3_third_content %}
+<div class="mainblok">
+  <div class="phdr" style="font-weight:700">Thao tác nhanh</div>
+  <div class="menu">» <a href="?act=gift">Cửa hàng tình yêu</a></div>
+  {#<div class="menu">» Quản lý nhân vật</div>#}
+  <div class="menu">» <a href="?act=divorce">Ly hôn</a></div>
+</div>
+{% endset %}
+{{block('w3_third')}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <style>.bg-gift{background-image:linear-gradient(45deg,#f6f6f6,#ffccff);text-align:center}.bg-gift .number{font-weight:600}.listgift{list-style:none outside none;float:left;width:60px;height:65px;margin:2px;text-align:center}.listgift .badge{margin-top:-34px;background-color:#f50057;color:#fff;font-size:10px;padding:1px 3px;line-height:13px;border-radius:2px}.img_to{width:58px;height:50px;margin:1px;background:#fff;padding:.5px;border:1px solid #EFEFEF;border-radius:2px}.category{padding:0;margin:0}</style>
+{% endif %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{{block('end')}}
+{% endif %}

@@ -1,0 +1,280 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging,size,rwurl %}
+
+{% set url = get_uri_segments() %}
+{% set table_name = 'youtube' %}
+{#table: youtube - column: id,uploader,time,title,url,view#}
+{% if not is_login() %}{{redirect('/index')}}{% endif %}
+{% set my = select_table_row_data('users', 'nick', is_login()) %}
+{% if get_get('id') and url[1] != 'user' %}
+	{% set dvideo = select_table_row_data(table_name, 'id', get_get('id')) %}
+{% elseif url[1] == 'user' and rwurl(url[2]) not in ['',null] %}
+	{% set user = select_table_row_data('users', 'nick', rwurl(url[2])) %}
+{% endif %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set id_last = select_table_data(table_data,'id','asc')|last.id %}
+
+{% macro breadcrumb(tit, uri, text) %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><a href="/"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+  <li><a href="/watch">{{tit}}</a></li>
+  {% if uri and text %}
+  <li><a href="/watch/{{uri}}">{{text}}</a></li>
+  {% endif %}
+</ul>
+<link rel="stylesheet" href="/gallery.css?t={{'now'|date('U')}}" />
+<div class="w3-container" style="padding:4px;padding-bottom:0">
+  <div class="w3-right-align">
+    <a href="/watch/upload" class="btn btn-warning btn-sm"><i class="fa fa-upload" aria-hidden="true"></i> Tải lên</a>
+    <a href="/watch/upload/youtube" class="btn btn-success btn-sm"><i class="fa fa-plus-circle" aria-hidden="true"></i> Thêm mới</a>
+    <a href="/watch/user/{{is_login()}}" class="btn btn-primary btn-sm margin-left">Danh sách <span class="badge"><b class="red">{{get_row_count('youtube', {'uploader':is_login(), 'operator':'='})}}</b></span></a>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro nft_url(domain) %}https://{{domain}}.ipfs.nftstorage.link{% endmacro %}
+
+{% if url[1] == 'upload' and not url[2] %}
+{#=============================================================================#}
+{#thêm video lên nft tipfs#}
+{% set title = 'Tải lên video' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho video','upload','Tải lên')}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js" type="text/javascript"></script>
+{% set w3_main4px_content %}
+	{% set maxAllow = 5242880*4 %}
+<div class="mainblok">
+  <div class="phdr">Tải lên (Tối đa {{size(maxAllow)}})</div>
+	{% if request_method()|lower == 'post' %}
+  		{% set cid = get_post('fileCID') %}
+    	{% set title = get_post('title') %}
+		{% if cid and title %}
+  			{% set row_youtube = {'uploader':is_login(),'time':'now'|date('U'),'title':title,'url':cid,'type':'ipfs'} %}
+  			{% do insert_row_array_table(table_name, row_youtube) %}
+    		{% set row_chat = {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' vừa tải lên một video. ([url=/watch/view?id='~id_last~']Xem thêm[/url])'} %}
+    		{% do insert_row_array_table('chat', row_chat) %}
+			{{redirect('/watch')}}
+		{% else %}
+  <div class="rmenu">Dữ liệu không đúng!</div>
+		{% endif %}
+	{% endif %}
+  <div class="menu">
+    <form id="form" method="post" action="">
+      <center><div style="margin:5px;" id="dai"></div></center>
+      <table style="width:100%">
+        <tr>
+          <td class="e1">Tiêu đề/Trạng thái:</td>
+          <td class="w3-left-align e2"><input type="text" name="title" value="" class="form-control"/></td>
+        </tr>
+        <tr>
+          <td class="e1">Chọn file:</td>
+          <td class="w3-left-align e2"><input id="uploadfile" type="file" name="file" class="form-control" style="height:35px;border:0"/></td>
+        </tr>
+      </table>
+      <input id="fileCID" name="fileCID" value="" type="hidden"/>
+      <p style="display:none">
+        <button type="button" id="btnUpload" class="btn btn-primary btn-block" onclick="frUpload()">Chia sẻ ngay bây giờ</button>
+      </p>
+    </form>
+  </div>
+</div>
+<script>
+  $("#uploadfile").on("change", function() {
+    var e = document.getElementById("uploadfile"),
+        a = e.files[0].name,
+        c = encodeURI(a);
+    document.getElementById('btnUpload').style.visibility = "hidden";
+    document.getElementById('btnUpload').style.display = "none";
+    var d1 = document.getElementById('dai');
+    d1.insertAdjacentHTML('beforeend', '<img src="https://i.imgur.com/1TyFaOM.gif" />');
+    fetch("https://api.nft.storage/upload", {
+        method: "post",
+        headers: {
+            Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDI4ZjRFNDJEYjMxQWRiODdFYjQ3M2I2NmJjNjI1MTJlMzE4OEVGMjAiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTYzNzUxODc3NDE4MCwibmFtZSI6IkRvcmV3In0._fktZLU7Uj0o3cJgPLlSJOBX3ajw2i-yUQxUfsTi1Yw"
+        },
+        body: e.files[0]
+    }).then(e => e.json()).then(e => {
+        console.log(e.value.cid);
+        $("#fileCID").val(e.value.cid);
+      	document.getElementById("form").submit();
+    })
+  }),document.querySelector("#uploadfile").onclick = function(){document.querySelector("#btnUpload").click()};
+</script>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'upload' and url[2] == 'youtube' %}
+{#=============================================================================#}
+{#thêm video từ youtube#}
+{% set title = 'Video youtube' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho video','upload','Thêm mới')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+	{% if request_method()|lower == 'post' %}
+  		{% set url = get_post('youtube') %}
+  		{% set id_ytb = get_youtube_id(url) %}
+    	{% set title_ytb = get_youtube_title(url) %}
+		{% if id_ytb and title_ytb %}
+  			{% set row_youtube = {'uploader':is_login(),'time':'now'|date('U'),'title':title_ytb,'url':id_ytb} %}
+  			{% do insert_row_array_table(table_name, row_youtube) %}
+			{{redirect('/watch')}}
+		{% else %}
+  <div class="rmenu">Dữ liệu không đúng!</div>
+		{% endif %}
+	{% endif %}
+  {% set sharelink = get_get('url') %}
+  <form method="post">
+    <div class="menu">
+      <table style="width:100%">
+        <tr>
+          <td class="e1">Link video youtube:</td>
+          <td class="w3-left-align e2"><input type="text" name="youtube" placeholder="VD: https://www.youtube.com/watch?v=TF70IYJN4sc" class="form-control" value="{{sharelink}}"/></td>
+        </tr>
+      </table>
+    </div>
+    <div class="menu w3-center"><button type="submit" name="submit" class="btn btn-primary btn-block">Chia sẻ ngay bây giờ</button></div>
+  </form>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'view' and dvideo.id %}
+{#=============================================================================#}
+{#show video#}
+{% set title = 'Xem video' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho video','view','Thông tin')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="postprofile">
+    <div class="postprofileInner" style="margin-top:0;padding-top:0">
+      <div class="profileAvatar"><img src="{{getAvtUser(dvideo.uploader)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser imgAvt-{{dvideo.uploader}}" style="border:.5px solid #444"/></div>
+      <div class="profileInfo">
+        <div class="author"><a href="/user/{{dvideo.uploader}}">{{maunick(dvideo.uploader)}}</a> <i class="fa fa-angle-right" aria-hidden="true"></i> <a href="/watch/view?id={{dvideo.id}}">{{html_decode(dvideo.title)}}</a></div>
+        <div style="font-size:15px;color:#999"><i class="fa fa-clock-o"></i> {{ago(dvideo.time)}}</div>
+      </div>
+    </div>
+  </div>
+  <div class="d-menu" style="text-align:center">
+    {% if dvideo.type == 'youtube' %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.6.7/plyr.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.6.7/plyr.min.js"></script>
+    <style>.youtubeShow{max-height: 500px;height: auto;width: auto;}</style>
+    <div id="player" data-plyr-provider="youtube" data-plyr-embed-id="{{dvideo.url}}"></div>
+    <script>const player = new Plyr('#player');</script>
+    {% else %}
+    <div class="video-wrapper" style="text-align:center;"><iframe loading="lazy" src="/video-embed?link={{_self.nft_url(dvideo.url)}}?filename={{rwurl(dvideo.title)}}.mp4" height="315" width="560" scrolling="no" allowfullscreen="" frameborder="0"></iframe></div>
+    {% endif %}
+  </div>
+</div>
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-share-alt-square" aria-hidden="true"></i> Chia sẻ</div>
+  {% if dvideo.type == 'youtube' %}
+  	{% set link_share = 'https://www.youtube.com/watch?v='~dvideo.url %}
+  	{% set bbcode_share = '[youtube]https://www.youtube.com/watch?v='~dvideo.url~'[/youtube]' %}
+  {% else %}
+  	{% set link_share = _self.nft_url(dvideo.url) %}
+  	{#{% set bbcode_share = '[vid]'~_self.nft_url(dvideo.url)~'[/vid]' %}#}
+  	{% set bbcode_share = '[url=/watch/view?id='~dvideo.id~']Dorew Watch: '~dvideo.title~'[/url]' %}
+  {% endif %}
+  <div class="menu">
+    <table style="width:100%">
+      <tr>
+        <td class="e1">Link:</td>
+        <td class="w3-left-align e2"><input type="text" value="{{link_share}}" class="form-control"/></td>
+      </tr>
+      <tr>
+        <td class="e1">BBCode:</td>
+        <td class="w3-left-align e2"><input type="text" value="{{bbcode_share}}" class="form-control"/></td>
+      </tr>
+    </table>
+  </div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% elseif url[1] == 'user' and user.id %}
+{#=============================================================================#}
+{#kho video của user#}
+{% set title = 'Kho video '~user.name %}
+{{block('head')}}
+{{_self.breadcrumb('Kho video','user',user.name)}}
+{% set w3_main4px_content %}
+	{% set total = get_row_count(table_name, {'uploader':user.nick, 'operator':'='}) %}
+    {% set per = '24' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+	{% set p = get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    <div class="mainblok">
+    {% if total == '0' %}
+      <div class="list1">Chưa có video nào được đăng tải.</div>
+    {% else %}
+      {% set data = query_select_table(table_name,'*','WHERE `uploader` = "'~user.nick~'" ORDER BY time DESC LIMIT '~st~','~per) %}
+      <div class="vList">
+        <ul style="list-style-position:outside;margin:0;padding:0;list-style-type:none" class="list-movies">
+        {% for video in data %}
+          {% if video.id %}
+          <li class="item-movie">
+            <a title="{{video.title}}" href="/watch/view?id={{video.id}}"><div class="image"><div class="movie-play"><div class="movie-thumbnail" style="background-image:url('{% if video.type != 'youtube' %}https://i.imgur.com/pkt72fu.jpg{% else %}https://img.youtube.com/vi/{{video.url}}/0.jpg{% endif %}');"></div><span class="cripple"></span></div></div><div class="title-movie">{{video.title}}</div></a>
+          </li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      </div>
+  {{paging('?page=',p,page_max)|replace({'/=':'/','/?':'?'})|raw}}
+    {% endif %}
+    </div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% else %}
+{#=============================================================================#}
+{#kho video chung#}
+{% set title = 'Kho video' %}
+{{block('head')}}
+{{_self.breadcrumb('Kho video')}}
+{% set w3_main4px_content %}
+	{% set total = get_table_count(table_name) %}
+    {% set per = '24' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+	{% set p = get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    <div class="mainblok">
+    {% if total == '0' %}
+      <div class="list1">Chưa có video nào được đăng tải.</div>
+    {% else %}
+      {% set data = query_select_table(table_name,'*','ORDER BY time DESC LIMIT '~st~','~per) %}
+      <div class="vList">
+        <ul style="list-style-position:outside;margin:0;padding:0;list-style-type:none" class="list-movies">
+        {% for video in data %}
+          {% if video.id %}
+          <li class="item-movie">
+            <a title="{{video.title}}" href="/watch/view?id={{video.id}}"><div class="image"><div class="movie-play"><div class="movie-thumbnail" style="background-image:url('{% if video.type != 'youtube' %}https://i.imgur.com/pkt72fu.jpg{% else %}https://img.youtube.com/vi/{{video.url}}/0.jpg{% endif %}');"></div><span class="cripple"></span></div></div><div class="title-movie">{{video.title}}</div></a>
+          </li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      </div>
+  {{paging('?page=',p,page_max)|replace({'/=':'/','/?':'?'})|raw}}
+    {% endif %}
+    </div>
+{% endset %}
+{{block('w3_main4px')}}
+{#=============================================================================#}
+{% endif %}
+
+{{block('end')}}

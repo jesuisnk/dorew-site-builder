@@ -1,0 +1,198 @@
+{% macro bb_img(nd) %}
+  {% set pattern = '/\\[img\\](.*?)\\[\\/img\\]/' %}
+  {% set loaderror = "'https://i.imgur.com/806SpRu.png'" %}
+  {% set replacement = '<a href="$1" class="swipebox"><img loading="lazy" class="bb_img LoadImage" src="$1" border="2" onerror="this.onerror=null;this.src='~loaderror~'"/></a>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_d(nd) %}
+  {% set pattern = '/\\[d\\](.*?)\\[\\/d\\]/' %}
+  {% set replacement = '<center><a href="$1"><button class="btn btn-primary"><i class="fa fa-download"></i> Download</button></a></center>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_code_encode(nd) %}
+  {% set pattern = '/\\[code\\]((\\n|.)*?)\\[\\/code\\]/' %}
+  {% set array_tag_code = nd|preg_get_all(pattern) %}
+  {% for tag_code in array_tag_code %}
+      {% set tag_code_encode = tag_code|ju_encode %}
+      {% set nd = nd|replace({(tag_code): (tag_code_encode)}) %}
+  {% endfor %}
+  {{ nd|raw }}
+{% endmacro %}
+{#================================================#}
+{#
+{% macro bb_code_decode(nd) %}
+  {% set pattern_decode = '/(%22%5Bcode%5D)(.*?)(%5B%5C%2Fcode%5D%22)/' %}
+  {% set array_tag_decode = nd|preg_get_all(pattern_decode) %}
+  {% for tag_code in array_tag_decode %}
+      {% set tag_code_decode = tag_code|replace({'%3Cbr+%5C%2F%3E':''})|ju_decode|slice(6)|slice(0,-7) %}
+	  {% set nd = nd|replace({(tag_code): '<pre><code>'~tag_code_decode~'</code></pre>'}) %}
+  {% endfor %}
+  {{ nd|raw }}
+{% endmacro %}
+#}
+{#================================================#}
+{% macro bb_code_decode(nd) %}
+  {% set pattern_decode = '/(%22%5Bcode%5D)(.*?)(%5B%5C%2Fcode%5D%22)/' %}
+  {% set array_tag_decode = nd|preg_get_all(pattern_decode) %}
+  {% for tag_code in array_tag_decode %}
+      {% set tag_code_decode = tag_code|replace({'%3Cbr+%5C%2F%3E':''})|ju_decode|slice(6)|slice(0,-7) %}
+	  {% set nd = nd|replace({(tag_code): '<pre><code>'~tag_code_decode~'</code></pre>'}) %}
+  {% endfor %}
+  {{ nd|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_nick(nd) %}
+  {% set pattern = '/@[a-zA-Z0-9_-]{1,30}[^\\s]/' %}
+  {% set array_tag_nick = nd|preg_get_all(pattern) %}
+  {% for tag_nick in array_tag_nick %}
+    {% set tag_nick_ck = tag_nick|slice(1) %} {# xóa @ #}
+    {% if select_table_row_data('users', 'nick', tag_nick_ck).id %}
+      {% set tag_name = select_table_row_data('users', 'nick', tag_nick_ck).name %}
+      {% set nd = nd|replace({(tag_nick): '<a href="/user/'~tag_nick_ck~'">@'~tag_name~'</a>'}) %}
+    {% endif %}
+  {% endfor %}
+  {{ nd|raw }}
+{% endmacro %}
+{#================================================#}
+{# thông báo hệ thống #}
+{% macro tagPost(uri,author,nd) %}
+  {% set system_bot = select_table_row_data('system','id',1).bot %}
+  {% set pattern = '/@[a-zA-Z0-9_-]{1,30}[^\\s]/' %}
+  {% set array_tag_nick = nd|preg_get_all(pattern) %}
+  {% if request_method()|lower == 'post' %}
+    {% for tag_nick in array_tag_nick %}
+      {% set tag_nick_ck = tag_nick|slice(1) %} {# xóa @ #}
+      {% if select_table_row_data('users', 'nick', tag_nick_ck).id %}
+        {% set user = select_table_row_data('users', 'nick', tag_nick_ck) %}
+        {% set notify = '@'~author~' đã nhắc đến bạn trong một bài đăng [url='~uri~'][Xem thêm][/url]' %}
+		{% do insert_row_array_table('mail',{'sender_receiver':user.nick~'_'~system_bot,'nick':author,'content':notify,'time':'now'|date('U'),'view':'no'}) %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endmacro %}
+{#================================================#}
+{% macro bb_url(nd) %}
+  {% set pattern = '/\\[url=(.+?)\\](.*?)\\[\\/url\\]/' %}
+  {% set replacement = "<i class='fa fa-link fa-spin'></i><a rel='nofollow' href='$1'>$2</a>" %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_maduoc_1(nd) %}
+  {% set pattern = '/\\[maduoc=(.+?)\\](.*?)\\[\\/maduoc\\]/' %}
+  {% set replacement = "<span class='$1'>$2</span>" %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_vid(nd) %}
+  {% set pattern = '/\\[vid\\](.*?)\\[\\/vid\\]/' %}
+  {% set replacement = '<div class="video-wrapper" style="text-align: center;"><iframe loading="lazy" src="/video-embed?link=$1" height="315" width="560" scrolling="no" allowfullscreen="" frameborder="0"></iframe></div>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{% macro bb_youtube(nd) %}
+  {% set pattern = '/\\[youtube\\](.*?)\\[\\/youtube\\]/' %}
+  {% set replacement = '<div class="video-wrapper" style="text-align: center;"><iframe loading="lazy" src="/video-embed?link=$1" height="315" width="560" scrolling="no" allowfullscreen="" frameborder="0"></iframe></div>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_right(nd) %}
+  {% set pattern = '/\\[right\\](.*?)\\[\\/right\\]/' %}
+  {% set replacement = '<div style="text-align: right;">$1</div>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}
+{% endmacro %}
+{#================================================#}
+{% macro bb_simple(nd) %}
+{% spaceless %}
+  {#{% set pattern = '/\\[(b|i|u|s)\\](.*?)\\[\\/\\1\\]/' %}
+  {% set replacement = '<$1>$2</$1>' %}
+  {{ nd|preg_replace(pattern, replacement)|raw }}#}
+{% set data = nd|escape %}
+{% set bbcode_type_1 = ('b|i|u|s') %}
+{% set tag = bbcode_type_1|trim|split('|') %}
+{% for i in tag|keys %}
+	{% set tag1 = data|split('['~tag[i]~']') %}
+	{% for u in tag1|keys %}
+		{% set cn = tag1[u]|split('[/'~tag[i]~']')|first %}
+		{% set data = data|replace({ ('['~tag[i]~']'~cn~'[/'~tag[i]~']\r\n'):('<'~tag[i]~'>'~cn~'</'~tag[i]~'> ') }) %}
+		{% set data = data|replace({ ('['~tag[i]~']'~cn~'[/'~tag[i]~']'):('<'~tag[i]~'>'~cn~'</'~tag[i]~'> ') }) %}
+	{% endfor %}
+{% endfor %}
+{% set bbcode_type_2 = '
+[red]{?}[/red] ==> <span style="color:red">{?}</span>
+[blue]{?}[/blue] ==> <span style="color:blue">{?}</span>
+[green]{?}[/green] ==> <span style="color:green">{?}</span>
+[center]{?}[/center] ==> <div style="text-align:center;">{?}</div>
+[left]{?}[/left] ==> <div style="text-align:left;">{?}</div>
+[right]{?}[/right] ==> <div style="text-align:right;">{?}</div>
+[d]{?}[/d] ==> <center><a href="{?}"><button class="btn btn-primary"><i class="fa fa-download"></i> Download</button></a></center>
+' %}
+{% set tag = bbcode_type_2|split('\n')%}
+{% for i in tag|keys %}
+	{% set tag1 = tag[i]|split('==>')|first|trim %}
+		{% set mtag1 = tag1|split('{?}') %}
+	{% set tag2 = tag[i]|split('==>')|last|trim %}
+		{% set mtag2 = tag2|split('{?}') %}
+	{% set ttag = data|split(mtag1[0]) %}
+	{% for u in ttag|keys %}
+		{% set cn = ttag[u]|split(mtag1[1])|first %}
+		{% set data = data|replace({ (mtag1[0]~cn~mtag1[1]~'\r\n'):(mtag2[0]~cn~mtag2[1]~' ') }) %}
+		{% set data = data|replace({ (mtag1[0]~cn~mtag1[1]):(mtag2[0]~cn~mtag2[1]) }) %}
+	{% endfor %}
+{% endfor %}
+{% set bbcode_type_3 = '
+[color={?}]{?}[/color] ==> <span style="color:{?};">{?}</span>
+[bcolor={?}]{?}[/bcolor] ==> <span style="color:{?};font-weight:700">{?}</span>
+[quote={?}]{?}[/quote] ==> <div class="quote"> <p>{?}</p> <p>{?}</p> </div>
+' %}
+{% set tag = bbcode_type_3|split('\n') %}
+{% for i in tag|keys %}
+	{% set tag1 = tag[i]|split('==>')|first|trim %}
+		{% set mtag1 = tag1|split('{?}') %}
+	{% set tag2 = tag[i]|split('==>')|last|trim %}
+		{% set mtag2 = tag2|split('{?}') %}
+	{% set ttag = data|split(mtag1[0]) %}
+	{% for u in ttag|keys %}
+		{% set cn1 = ttag[u]|split(mtag1[1])|first %}
+		{% set cn2 = ttag[u]|split(cn1~mtag1[1])|last|split(mtag1[2])|first %}
+		{% set data = data|replace({ (mtag1[0]~cn1~mtag1[1]~cn2~mtag1[2]~'\r\n'):(mtag2[0]~cn1~mtag2[1]~cn2~mtag2[2]~' ') }) %}
+		{% set data = data|replace({ (mtag1[0]~cn1~mtag1[1]~cn2~mtag1[2]):(mtag2[0]~cn1~mtag2[1]~cn2~mtag2[2]) }) %}
+	{% endfor %}
+{% endfor %}
+{% endspaceless %}
+{{html_decode(data)|raw}}
+{% endmacro %}
+{#================================================#}
+{% macro smile(string) %}
+  {% set arr_emo_name = ["ami", "anya", "aru", "aka", "dauhanh", "dora", "le", "menhera", "moew", "nam", "pepe", "qoobee", "qoopepe", "thobaymau", "troll", "dui", "firefox", "conan"] %}
+  {% for emo_name in arr_emo_name %}
+	{% if ":"~emo_name in string %}
+      {% set pattern = '/[:]'~emo_name~'(\\d+)[:]/' %}
+      {% set replacement = '<img loading="lazy" src="https://dorew-site.github.io/assets/smileys/'~emo_name~'/'~emo_name~'$1.png" alt="$1"/>' %}
+      {% set string = string|preg_replace(pattern, replacement) %}
+    {% endif %}
+  {% endfor %}
+{{string|raw}}
+{% endmacro %}
+{#=======================================================================#}
+{% macro bbcode(nd) %}
+ {% set nd = bb_code_system(' '~nd) %}
+ {% set nd = cancel_xss(nd) %}
+ {% set nd = nd|nl2br %}
+ {#{% set nd = _self.bb_code_encode(nd) %}#} 
+ {% set nd = _self.bb_nick(nd) %} 
+ {% set nd = _self.bb_img(nd) %}
+ {# {% set nd = _self.bb_d(nd) %} #}
+ {% set nd = _self.bb_right(nd) %} 
+ {% set nd = _self.bb_vid(nd) %} 
+ {% set nd = _self.bb_youtube(nd) %}
+ {% set nd = _self.bb_simple(nd) %}
+ {#{% set nd = _self.bb_code_decode(nd) %}#}
+ {% set nd = nd|replace({'<[>': '[','<:>': ':','<@>':'@','<=>':'=','[br]':'<br />','<enter>' :'
+',' ,':',',' .':'.'}) %}
+ {% set nd = bb_url_system(nd) %}
+ {% set nd = _self.bb_url(nd) %} 
+ {% set nd = _self.smile(nd) %}
+ {{html_decode(nd)|raw}}
+{% endmacro %}
+

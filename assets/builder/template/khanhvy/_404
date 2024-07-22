@@ -1,0 +1,12 @@
+{% use '_layout' %}
+{{block('head')}}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> <b>Các trang yêu cầu không tồn tại</b></div>
+  <div class="menu" align="center">
+    <p><img src="https://i.imgur.com/vbcVQJ8.png"></p>
+  </div>
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+{{block('end')}}

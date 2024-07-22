@@ -1,0 +1,39 @@
+{% from '_bbcode' import bbcode %}
+{% from '_users' import maunick,getAvtUser %}
+{% from '_functions' import ago,paging %}
+{% set total = get_table_count('chat') %}
+{% set per = '10' %}
+{% set page_max = total//per %}
+{% if total//per != total/per %}
+{% set page_max = total//per+1 %}
+{% endif %}
+{% set p=get_get('page')|default(1) %}
+{% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+{% if p > page_max %}{% set p = page_max %}{% endif %}
+{% set st=p*per-per %}
+{% set data = select_table_limit_offset('chat',per,st,'id','desc') %}
+{% for chat in data %}
+{% if chat.id and chat.name %}
+{% set uchat = select_table_row_data('users', 'nick', chat.name) %}
+{% set avt = getAvtUser(chat.name)|trim %}
+{% if "imgur" in avt %}
+{% set avt = avt|replace({'b.jpg': 's.jpg', 'b.png': 's.png', '.gif': 's.gif'}) %}
+{% endif %}
+<div class="list1">
+<table cellpadding="0" cellspacing="1">
+<tbody>
+<tr>
+<td width="auto"><img loading="lazy" class="imgAvtUser imgAvt-{{uchat.nick}}" src="{{avt}}" width="60" height="60"></td>
+<td>
+<span name="online">{% if uchat.on < ('now'|date('U')-300) %}<font color="red"><i class="fa fa-toggle-off" aria-hidden="true"></i></font>{% else %}<font color="green"><i class="fa fa-toggle-on" aria-hidden="true"></i></font>{% endif %}</span>
+<a href="/user/{{chat.name}}">{{maunick(chat.name)}}</a>
+<a href="javascript:tag('@{{chat.name}} ', '')"><small><i class="fa fa-tag" aria-hidden="true"></i></small></a><br/>
+<small><font color="#999"><i class="fa fa-clock-o"></i> {{chat.time|date('d.m.Y - H:i', 'Asia/Ho_Chi_Minh')}}</font></small>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="chatbox"><span class="textchat"> </span>{{bbcode(chat.comment)}}</div>
+</div>
+{% endif %}
+{% endfor %}

@@ -1,0 +1,32 @@
+/* This file uses CSS of:
+   - Scf.Rens (animal-racing image)
+   - Dorew
+*/
+
+{% spaceless %}
+{{file_header('Content-Type: text/css')}}
+{% for user in select_table_data('users') %}
+	{% set user_style = user.style|trim|split('.') %}
+	{% if user_style[2] != '0' and user.id > 1 %}
+.imgAvt-{{user.nick}}{border: 0.8px solid #{{user_style[2]}};box-shadow: 0 0 5px 1px #{{user_style[2]}}}
+	{% endif %}
+{% endfor %}
+{#=====ĐUA THÚ=====#}
+{% set road_wall = random(1..7) %}
+.ani-area div{display:inline-block}
+.ani-road{background:url(https://dorew-site.github.io/assets/god-wealth/animal-racing/road/{{road_wall}}.png)}
+.ani-wall{background:url(https://dorew-site.github.io/assets/god-wealth/animal-racing/wall/{{road_wall}}.png) repeat-x;height:60px}
+{% set animal_name = ['Mèo Vằn','Chuột Tuyết','Tiểu Hồ','Bông Xù','Hắc Long','Tiểu Bảo','Hoả Long'] %}
+.ani{width:50px;height:46px;margin-left:0px}
+{% for animal in animal_name %}{% set animal_id = loop.index %}
+.ani{{animal_id}}{background-image:url(https://dorew-site.github.io/assets/god-wealth/animal-racing/ani{{animal_id}}.gif){% if animal_id == 3 %};width:55px{% endif %}}
+.ani{{animal_id}} ~ div::after{font-weight:700;content:'{{animal}}'}
+{% endfor %}
+{% endspaceless %}
+
+
+.bbCodeBlock{border-radius:10px;background-color:#fff;box-shadow:0 10px 20px rgba(0,0,0,0.15);background-color:#f8f8f8;overflow:hidden;margin-top:4px}.bbCodeBlock .type{background-color:#fff;width:100%;padding:8px;box-shadow:0 1px 30px rgba(0,0,0,0.1)}.bbCodeBlock .type .cbuttons{margin:3px 0 0 20px;position:absolute}.bbCodeBlock .type .cbuttons .cbutton{width:16px;height:16px;border-radius:50%;display:inline-block;margin-right:10px;position:relative}.bbCodeBlock .type .cbuttons .cbutton.close{background-color:#f5886e}.bbCodeBlock .type .cbuttons .cbutton.minimize{background-color:#fdbf68}.bbCodeBlock .type .cbuttons .cbutton.maximize{background-color:#a3d063}.bbCodeBlock .type .titCode{text-align:right;text-transform:lowercase;color:#bcbdc0;font-size:18px}.bbCodeBlock pre{max-height:500px;overflow:auto}.bbCodeBlock code{background-color:#F0F7FC;color:#000}
+
+.footer_in4{background:#444;color:#bcbcbc;padding:10px}.footer_in4 a{color:#fff}.footer_in4 .fi4{font-size:15px}
+
+.smile_container{/*width:296px;background-color:#eaeaeabf;border:1px solid #444444e6;box-shadow:1px 1px 3px #444444bd;border-radius:3px;height:198px;*/background-image:linear-gradient(#bbb,white)/*;position:absolute*/;z-index:999}.sitem{width:35px;height:35px;background-color:#fff;margin:auto;background-size:contain;border-bottom:1px solid #ddd;cursor:pointer}.ritem{width:45px;height:45px;background-color:#fff;margin:auto;background-size:contain;border-bottom:1px solid #ddd;cursor:pointer;display:inline-block;border-right:1px solid #ddd}.allbum{position:relative;width:75px;height:75px;background-color:#fff;margin:auto;background-size:contain;border-bottom:1px solid #ddd;cursor:pointer;display:inline-block;border-right:1px solid #ddd}.sleft{height:194px;overflow-y:scroll}.sright{height:194px;overflow-y:scroll}

@@ -1,0 +1,71 @@
+{% use '_layout' %}
+{% set title = 'Đăng ký' %}
+{{block('head')}}
+{% from '_functions' import rwurl %}
+{% from '_users' import auto,e_pass %}
+
+{% if is_login() %}
+  {{redirect('/')}}
+{% else %}
+{% set w3_main4px_content %}
+<div class="mainblok">
+  <div class="phdr"><i class="fa fa-user-plus" aria-hidden="true"></i> Đăng Ký</div>
+  {# kiểm tra và lưu tài khoản #}
+  {% set now = 'now'|date('U') %}
+  {% set user = rwurl(get_post('user')) %}
+  {% set pass = get_post('pass') %} 
+  {% set pass = e_pass(pass) %}
+  {% set repass = get_post('repass') %} 
+  {% set repass = e_pass(repass) %}
+  {% set gt = get_post('gt')|default('boy') %}
+  {% set data = {'nick':user,'name':get_post('user'),'pass':pass,'auto':auto(),'gt':gt,'reg':now,'on':now} %}
+  {% set chatmn = {'name' :select_table_row_data('system','id',1).bot,'time':now,'comment':'Chào mừng @'~user~' đến với Dorew. Hãy lưu lại trang này và giới thiệu với bạn bè nhé!'} %}
+  {% if request_method()|lower == 'post' %}
+    {% if user and pass and repass and gt %} 
+      {% if pass != repass %}
+        <div class="rmenu">Mật khẩu xác nhận không đúng.</div>
+      {% else %}
+        {% set udb = select_table_row_data('users', 'nick', user) %}
+        {% if user == udb.nick %} 
+          <div class="rmenu"> Tài khoản đã tồn tại.</div>
+        {% elseif user|length > 30 %}
+          <div class="rmenu">Tài khoản không dài quá 30 ký tự</div>
+        {% else %} 
+          {% if user matches '/^[a-zA-Z0-9\\-\\_]+[a-zA-Z0-9\\-\\_]$/' %} 
+            <div class="gmenu"> Đăng ký thành công. Bạn có thể đăng nhập</div>
+            {% do insert_row_array_table('users', data) %}
+            {% do insert_row_array_table('chat', chatmn) %}
+            {{redirect('/login?reg=s')}}
+          {% else %}
+            <div class="rmenu">Tài khoản không được chứa ký tự đặc biệt.</div>
+          {% endif %} 
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <div class="rmenu"> Vui lòng điền đầy đủ thông tin.</div>
+    {% endif %}
+  {% endif %}
+  <form method="post" action="">
+    <div class="menu"> 
+      <i class="fa fa-user" aria-hidden="true"></i>Tài khoản:<br/>
+      <input type="text" name="user"><br/>
+      <i class="fa fa-lock" aria-hidden="true"></i> Mật khẩu:<br/>
+      <input type="password"  name="pass"><br/>
+      <i class="fa fa-lock" aria-hidden="true"></i> Nhập lại mật khẩu:<br/>
+      <input type="password" name="repass"><br/>
+      Giới tính:<br /> 
+      <select name="gt">
+        <option value="boy">Nam</option>
+        <option value="girl">Nữ</option>
+      </select>
+    </div>
+    <div class="menu" style="text-align:center">
+      <script src="/doomcaptcha.js?1" countdown="on" label="Captcha" enemies="4"></script>
+      <p><button style="border: 4px solid red;" type="submit" id="submit" class="button" disabled>Đăng Ký</button></p>
+    </div>
+  </form>
+</div>{# end div.mainblok #}
+{% endset %}
+{{block('w3_main4px')}}
+{% endif %}
+{{block('end')}} 

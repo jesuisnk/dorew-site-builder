@@ -1,0 +1,518 @@
+{% block head %}
+<!DOCTYPE html
+    PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.2//EN" "http://www.openmobilealliance.org/tech/DTD/xhtml-mobile12.dtd">
+<html lang="vi">
+{% from '_users' import online,getAvtUser,maunick %}
+{% from 'play' import countdown,simple_profit %}
+{% from 'play_dragon' import rank %}
+{% set url = get_uri_segments() %}
+{% set system_info = select_table_row_data('system','id',1) %}
+{% set system_bot = system_info.bot %}
+{% if is_login() != '' %}
+  	{% set system_notify = select_table_where_data('mail', 'sender_receiver', is_login()~'_'~system_bot)|length-1 %}
+	{% do update_row_table('users', 'ip', ip()|trim, 'nick', is_login()) %}
+	{% set user = select_table_row_data('users', 'nick', is_login()) %}
+  	{% set user_dragon = select_table_row_data('play_dragon', 'nick', is_login()) %}
+	{% if url[0] == 'banned-user' and user.level >= '0' %}
+  		{{redirect('/user')}}
+  	{% elseif url[0] != 'banned-user' and user.level < '0' %}
+        {{redirect('/banned-user')}}
+    {% endif %}
+	{% set today = 'now'|date('d/m/Y','Asia/Ho_Chi_Minh') %}
+	{% if user.xu < '0' %}
+  		{% do update_row_table('users', 'xu', 0, 'nick', is_login()) %}
+	{% endif %}
+	{% if user.do < '0' %}
+  		{% do update_row_table('users', 'do', 0, 'nick', is_login()) %}
+	{% endif %}
+	{% do update_row_table('users', 'on', 'now'|date('U','Asia/Ho_Chi_Minh'), 'nick', is_login()) %}
+    {#====ĐIỂM ONL====#}
+    {% set totalonsite = user.time_on %}
+    {% if user.on > ('now'|date('U') - 300) %}
+  		{% set totalonsite = totalonsite + 'now'|date('U') - user.on %}
+  		{% do update_row_table('users', 'time_on', totalonsite, 'nick', is_login()) %}
+  	{% endif %}
+    {#==END ĐIỂM ONL==#}
+    {#=====ĐÒI NỢ=====#}
+    {% set repayment_period_day = 60*60*24 %}
+    {% set repayment_period = repayment_period_day*30 %}
+    {% for debtor in select_table_data('users') %}
+    	{% set mortgage = debtor.mortgage|split(',') %}
+    	{% set time_start = mortgage[0] %}
+    	{% set xu_mortgage = mortgage[1] %}
+        {% set countdown = 30 - countdown(time_start, 'd')|trim %}
+        {% if countdown > 30 and mortgage|length >= '2' %}
+  			{# Chưa trả => bay màu luôn #}
+  			{% set save_mortgage = '0' %}
+  			{% set save_xu = debtor.xu - (xu_mortgage + simple_profit(xu_mortgage, countdown)|trim) %}
+    		{% set chat_row = {'name':system_bot,'time':'now'|date('U'),'comment':'@'~debtor.nick~' đã bị bay màu vì không hoàn trả nợ =))'} %}
+            {% set transHistory = {'nick':debtor.nick,'content':'['~time_start|md5|slice(0,8)|upper~'] Bị bay màu vì chưa trả nợ trước hạn chót','time':'now'|date('U')} %}
+  			{% do update_row_table('users', 'xu', save_xu, 'id', debtor.id) %}
+  			{% do update_row_table('users', 'level', '-1', 'id', debtor.id) %}
+  			{% do update_row_table('users', 'mortgage', '0', 'id', debtor.id) %}
+    		{% do insert_row_array_table('chat', chat_row) %}
+            {% do insert_row_array_table('transaction_history', transHistory) %}
+  		{% endif %}
+    {% endfor %}
+    {#===END ĐÒI NỢ===#}
+  	{#=====BÁN ĐỘ=====#}
+  	{% if get_row_count('penalty_turn',  {'player1':is_login(), 'result':'chuabat', 'operator':'='}) >= '1' %}
+  		{% do query_update_table('penalty_turn',{'ip_player1':ip()},"WHERE `player1` = '"~is_login()~"' AND `result` = 'chuabat'") %}
+  	{% endif %}
+  	{#===END BÁN ĐỘ===#}
+  	{#=====UPDATE LEVEL=====#}
+  	{% if user.level in 0..99 %}
+  		{% set exp = [10, 20, 40, 80, 140, 245, 429, 643, 965, 1302, 1302, 1758, 2373, 3086, 3857, 4725, 6662, 7661, 8695, 9782, 11005, 12381, 13928, 15669, 17628, 19832, 22311, 25099, 28237, 32049, 36375, 41286, 46860, 53186, 60366, 68515, 77765, 88263, 100178, 117710, 138309, 162513, 190953, 224369, 263634, 309770, 363980, 427676, 502519, 585435, 682032, 794567, 925671, 1078406, 1256343, 1463640, 1705140, 1986489, 2314259, 2672969, 3087280, 3565808, 4118508, 4756877, 5494193, 6345793, 7329390, 8465446, 9777590, 12710867, 16524127, 21481365, 27925775, 37699796, 50894725, 68707878, 92755636, 125220108, 169047146] %}
+  		{% set level = 0 %}
+		{% for i in 0..(exp|length-1) %}
+			{% if user['farm']|default(0) >= exp[i] %}
+				{% set level = i %}
+			{% endif %}
+		{% endfor %}
+  		{% if level >= 99 %}{% set level = 99 %}{% endif %}
+        {% do update_row_table('users', 'level', level, 'id', user.id) %}
+  	{% endif %}
+  	{#===END UPDATE LEVEL===#}
+  	{#=====MÙA GIẢI RỒNG=====#}
+  	{% if (system_info['dragon'] + system_info['dragon_league']) <= 'now'|date('U') %}
+        {% set rank_best = query_select_table('play_dragon', '*', 'WHERE `nick` != "'~system_bot~'" ORDER BY rank DESC LIMIT 1')|last %}
+        {% set rank_best_info = select_table_row_data('users', 'nick', rank_best.nick) %}
+        {% set rank_best_reward = system_info['dragon_reward'] %}
+  		{% do update_row_table('system', 'dragon', 'now'|date('U'), 'id', 1) %}
+        {#===THƯỞNG CHIẾN ĐẤU===#}                                                       {% for hero in query_select_table('play_dragon', '*', 'WHERE `nick` != "'~system_bot~'"') %}
+        	{% set rwd = rank('play_dragon', hero.nick, 'reward')|trim %}
+            {% set hero_info = select_table_row_data('users', 'nick', hero.nick) %}
+            {% if hero.reward >= 1 %}
+  				{% do update_row_table('users', 'do', (hero_info['do']|trim+rwd), 'nick', hero.nick) %}
+  				{% do insert_row_array_table('mail',{'sender_receiver':hero.nick~'_'~system_bot,'nick':system_bot,'content':'Mùa giải Rồng đã kết thúc. Rồng của bạn đã đạt hạng [b]'~rank('play_dragon', hero.nick, 'rank')~'[/b] trong giải đấu vừa qua, bạn nhận được [b]'~rwd|number_format~' Tiềm lực[/b].','time':'now'|date('U'),'view':'no'}) %}
+  			{% endif %}
+        {% endfor %}
+        {#===THƯỞNG HẠNG NHẤT===#}
+        {% do update_row_table('users', 'do', (rank_best_info['do']|trim+rank_best_reward), 'nick', rank_best.nick) %}
+  		{% do insert_row_array_table('mail',{'sender_receiver':rank_best.nick~'_'~system_bot,'nick':system_bot,'content':'Chúc mừng bạn, rồng của bạn đã đạt hạng nhất trong mùa giải vừa qua. Bạn đã được thưởng thêm [b]'~rank_best_reward|number_format~' Tiềm lực[/b].','time':'now'|date('U'),'view':'no'}) %}
+        {#====END GIẢI THƯỞNG===#}
+        {% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':'Mùa giải mới của Đấu trường rồng đã quay trở lại, hãy cùng [url=/play/dragon]tham chiến[/url] nào!\r\n Chúc mừng @'~rank_best.nick~' đã giành được hạng nhất trong mùa giải vừa rồi, bạn đã nhận được [b]'~rank_best_reward|number_format~'[/b] Tiềm lực từ giải đấu!'}) %}
+  		{% do query_update_table('play_dragon', {'reward':0}, 'WHERE `nick` != "'~system_bot~'"') %}
+        {% do query_update_table('play_dragon', {'rank':399}, 'WHERE `nick` != "'~system_bot~'" AND `rank` > "399"') %}
+        {{redirect('/')}}
+  	{% endif %}
+  	{#===END MÙA GIẢI RỒNG=====#}
+  	{#=====MA DƯỢC=====#}
+  	{% if get_row_count('user_maduoc',{'nick':is_login()}) < 1 %}
+    	{% do insert_row_table('user_maduoc', 'nick', is_login()) %}
+    {% endif %}
+  	{#===END MA DƯỢC===#}
+{% endif %}
+{% set default_logo = 'https://i.imgur.com/2pfDfoN.png' %}
+
+<head>
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  {#=====thông tin trang=====#}
+  <meta name="robots" content="index,follow" />
+  <meta name="googlebot" content="index,follow" />
+  {#xác minh: example.domain#}
+  {#<meta name="google-site-verification" content="XXX" />#}
+  {#=========================#}
+  {% set title = title|default('Dorew') %}
+  {% if title != 'Dorew' %}{% set title = title~' | Dorew' %}{% endif %}
+  <title>{{title}}</title>
+  <meta name="description" content="{{description|default('Thích Ngao Du')}}" />
+  <link rel="canonical" href="{{current_url()}}" />
+  <link rel="shortcut icon" href="{{default_logo}}" />
+  <meta property="og:site_name" content="Dorew" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{title|default('Dorew')}}" />
+  <meta property="og:description" content="{{description|default('Thích Ngao Du')}}" />
+  <meta property="og:url" content="{{current_url()}}" />
+  <meta property="og:image" content="{{default_logo}}" />
+  <meta property="twitter:title" content="{{title|default('Dorew')}}" />
+  <meta property="twitter:description" content="{{description|default('Thích Ngao Du')}}" /> 
+  <meta property="twitter:image" content="{{default_logo}}" />
+  <meta property="twitter:card" content="summary" />
+  {#===end thông tin trang===#}
+  <meta name="theme-color" content="#22292F" />
+  <meta name="format-detection" content="telephone=no" />
+  {#=====pre=====#}
+  <link rel="dns-prefetch" href="https://i.imgur.com" />
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+  <link rel="dns-prefetch" href="https://raw.githack.com" />
+  <link rel="dns-prefetch" href="https://images.weserv.nl" />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  {#===end pre===#}
+  <link rel="stylesheet" href="/forum.css?get=0.2.0" type="text/css" />
+  <link rel="stylesheet" href="/w3.css?t=gs" />
+  <link rel="stylesheet" href="/w3-colors-win8.css" />
+  <link rel="stylesheet" href="/app.css.get" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.swipebox/1.4.4/css/swipebox.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/placeholder-loading/dist/css/placeholder-loading.min.css">
+</head>
+
+    <body{% if url[0] not in ['mail','user'] %} data-instant-allow-query-string{% endif %}>
+      	{% if url[0] == 'category' %}<style>@media (max-width:480px){.breadcrumb>li:nth-child(1){display:block}}</style>{% endif %}
+      {% if url[0] == 'user' and url[1] in ['avatar','cover','info','change.password'] or url[0] in ['play','watch','view-file'] and url[1] not in ['dragon','god-wealth','border'] or url[0] == 'manager' and url[1] == 'user' %}<style>#edit-info .menu:hover{background:#fff}#edit-info #edit-avt{border:.5px solid #000;border-radius:100%;width:58px;height:58px}@media (min-width:656px){.e1{width:20%;text-align:right}.e3{width:20%;text-align:left}}@media (max-width:655px){table,tr,td{width:100%;display:block}.e1,.e3{width:100%;font-weight:700}.e2{width:100%}}@media (max-width:480px){ #edit-info #edit-avt{width:37px;height:37px}@media (max-width:335px){ #edit-info #edit-avt{width:30px;height:30px}</style>{% endif %}
+        <script>var heightWindow=$(window).height();if (heightWindow >= 600){$('.w3-pc').attr('style', 'min-height:' + (heightWindow - 135) + 'px');}</script>
+        <header>
+            <ul class="navbar" style="z-index:1000">
+                <li class="item w3-right{% if is_login() %} NavMenu hiddenText{% endif %}"><button class="w3-bar-item w3-button w3-hide-large w3-hover-none w3-hover-text-light-grey" onclick="w3_open()"><i class="fa fa-bars"></i></button></li>
+                <li class="item" style="padding-left:2px"></li>
+                <li class="item active"><a data-instant href="/" id="is_logo"><img src="https://i.imgur.com/2CuN7pf.png" height="30" width="30" style="margin-left:12px;"> Dorew</a></li>
+{% if is_login() %}
+              	<li class="item active w3-right hiddenText"><a href="/mail" title="Tin nhắn riêng"><i class="fa fa-envelope fa-lg" aria-hidden="true"></i>{% if user.new_mail|split('.')|length-1 > '0' %}<span class="badge">{{user.new_mail|split('.')|length-1}}</span>{% endif %}</a></li>
+              	<li class="item active w3-right hiddenText"><a href="/mail/system" title="Thông báo"><i class="fa fa-bell fa-lg" aria-hidden="true"></i>{% if system_notify > '0' %}<span class="badge">{{system_notify}}</span>{% endif %}</a></li>
+{% endif %}
+            </ul>
+        </header>
+        <main{% if is_login() %} class="main"{% else %} style="margin-top:-5px"{% endif %}>
+            <nav class="w3-sidebar w3-collapse w3-white w3-animate-left{% if is_login() %} hiddenText{% endif %}" style="z-index:3;width:300px;padding-top:10px"
+                id="mySidebar">
+                <div class="w3-container w3-row nav-dorew">
+{% if is_login() %}
+                  {% if url[0] == 'users' %}
+                  <div class="mainblok">
+                    <div class="phdr"><i class="fa fa-users" aria-hidden="true"></i> Thành viên</div>
+                    <div class="d-menu"><a href="/users">Danh sách</a></div>
+                    <div class="d-menu"><a href="/play/penalty?act=top">Top vua cầu thủ</a></div>
+                    <div class="d-menu"><a href="/users/birthday">Sinh nhật hôm nay</a></div>
+                    <div class="d-menu"><a href="/users/admin">Thành viên BQT</a></div>
+                    <div class="d-menu"><a href="/users/smile">Biểu tượng vui</a></div>
+                  </div>
+                  {% else %}
+                  {#=====================#}
+                  {% if url[0] != 'user' %}
+                    <div class="mainblok">
+                        <div
+                            style="background:#E8FFFE;border:solid #e9e9e9;border-width:0 1px 1px;padding:5px;word-wrap:break-word;text-align: center;">
+                            <img loading="lazy" class="imgAvtUser imgAvt-{{user.nick}}" src=" {{getAvtUser(is_login())}}" width="120" height="120"/>
+                          	<br/><a href="/user/{{is_login()}}"><b>{{maunick(is_login())}}</b></a><br/>
+                            <button><a href="/user/info" title="Chỉnh sửa hồ sơ"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a></button>
+                          {% if user.level > '120' %}
+                            <button><a href="/manager" title="Bảng quản trị"><i class="fa fa-tachometer" aria-hidden="true"></i></a></button>
+                          {% endif %}
+                            <button><a href="/logout" title="Đăng xuất"><i class="fa fa-sign-out" aria-hidden="true"></i></a></button>
+                        </div>
+                        <div class="list1"><i class="fa fa-id-card" aria-hidden="true"></i> ID: {{user.id}}</div>
+                        <div class="list1"><i class="fa fa-bitcoin" aria-hidden="true"></i> Tài sản: {{user.xu|number_format}} xu</div>
+                        <div class="list1"><i class="fa fa-superpowers" aria-hidden="true"></i> Tiềm lực: {{user.do|number_format}}</div>
+                    </div>
+                  {% endif %}
+                    <div class="mainblok">
+                        <div class="phdr"><b>MENU</b></div>
+	{% if url[0] != 'user' or url[0] == 'user' and url[1] not in ['',null,is_login()] %}
+                      	<div class="d-menu">» <a data-instant href="/user" title="Trang cá nhân">Trang cá nhân</a></div>
+	{% endif %}
+                      	<div class="d-menu">» <a data-instant href="/play" title="Cửa hàng">Cửa hàng</a></div>
+
+                      	<div class="d-menu">» <a data-instant href="/gallery" title="Kho ảnh">Kho ảnh</a> | <a data-instant href="/watch" title="Kho video">video</a></div>
+                      	<div class="d-menu">» <a data-instant href="/forum" title="Diễn đàn">Diễn đàn</a></div>
+    {% if url[0] != 'play' %}
+
+    {% endif %}
+    {% if url[0] == 'user' %}
+                        <div class="d-menu">» <a data-instant href="/logout" title="Đăng xuất">Đăng xuất</a></div>
+    {% endif %}
+                    </div>
+                  {#=====================#}
+                  {% endif %}
+{% else %}
+	{% if url[0] != 'login' %}
+                    <div class="mainblok">
+                        <div class="phdr"><i class="fa fa-sign-in" aria-hidden="true"></i> <b>Đăng nhập</b></div>
+                        <div class="menu">
+                            <form method="post" action="/login">
+                                <p>
+                                    <i class="fa fa-user" aria-hidden="true"></i> Tên tài khoản:<br />
+                                    <input type="text" class="w3-input" name="user">
+                                </p>
+                                <p>
+                                    <i class="fa fa-lock" aria-hidden="true"></i> Mật khẩu:<br />
+                                    <input type="password" class="w3-input" name="pass">
+                                </p>
+                                <p align="center">
+                                    <button type="submit" class="button">Đăng Nhập</button>
+                                </p>
+                            </form>
+                        </div>
+                    </div>
+	{% endif %}
+                    <div class="mainblok">
+                        <div class="phdr"><b>MENU</b></div>
+                        <div class="d-menu"><a href="/reg" title="Đăng ký"><i class="fa fa-user-plus" aria-hidden="true"></i> Đăng ký</a></div>
+                        <div class="d-menu"><a href="/forgot" title="Quên mật khẩu"><i class="fa fa-key" aria-hidden="true"></i> Quên mật khẩu</a></div>
+                        <div class="d-menu"><a href="/forum/286-noi-quy-o-dore.html" title="Nội quy của Dorew"><i class="fa fa-gavel" aria-hidden="true"></i> Điều khoản sử dụng</a></div>
+                    </div>
+                  {% endif %}{# endif is_login() #}
+            </nav>
+            <dorew onclick="w3_close()">
+                <div class="w3-main maintxt" style="margin-left:300px;margin-top:0px;">
+                    {% if is_login() and user_dragon['nick'] == is_login() and url[0] not in ['index','index.php','',null,'mail','forum','category','search'] %}
+                  	  	{% if (user_dragon['time_an'] + 43200) < 'now'|date('U') %}
+                      		{% set notice = 'Rồng của bạn đang đói!' %}
+                        {% endif %}
+                  		{% if notice %}
+                    <div class="w3-panel w3-orange" role="alert" style="padding:14px;margin:4px;">
+                        <b>Thông báo</b>
+                        <p>{{notice}} <a href="/play/dragon" style="color:white">Đi thăm rồng >></a></p>
+                    </div>
+                  		{% endif %}
+                    {% endif %}
+
+                    <div class="w3-row w3-pc">
+{% endblock %}
+
+{#===========================================================================================================#}
+
+{% block w3_main4px %}
+                        <div class="w3-container" style="padding:4px">
+                            {{w3_main4px_content}}
+                        </div>
+{% endblock %}
+
+{% block w3_main %}
+                        <div class="w3-container" style="padding:4px;padding-top:0;padding-bottom:0">
+                            {{w3_main_content}}
+                        </div>
+{% endblock %}
+                      
+{% block w3_third %}
+                        <div class="w3-container w3-third" style="padding-top:2px;padding-bottom:2px;padding-left:4px;padding-right:4px">
+                          <div id="head-wall-comment"></div>
+                            {{w3_third_content}}
+                        </div>
+{% endblock %}
+{% block w3_twothird %}
+                        <div class="w3-container w3-twothird" style="padding-top:2px;padding-bottom:2px;padding-left:4px;padding-right:4px">
+                          <div id="head-wall"></div>
+                            {{w3_twothird_content}}
+                        </div>
+{% endblock %}
+{#===========================================================================================================#}
+
+{% block end %}
+{% set url = get_uri_segments() %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set system_notify = select_table_where_data('mail', 'sender_receiver', is_login()~'_'~system_bot)|length-1 %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+                  	</div>
+            		{% if url[0] in ['index','index.php','',null] or url[0] in ['forum','category','search','view-file','view-chap','login','reg'] and not is_login() %}
+              		<div class="footer_in4">
+                      <div class="footer_title" style="font-weight:700"><i class="fa fa-link" aria-hidden="true"></i> Liên kết</div>
+                      <div class="fi4">
+                        <div><a href="https://upi.dorew.gq" title="Upload Dorew - Lưu trữ file IPFS">Upi.Dorew.Gq</a> | <a href="https://upload.dorew.gq" title="Upload Dorew - Lưu trữ file">Upload.Dorew.Gq</a> - Lưu trữ tập tin</div>
+                        <div><a href="https://raye.gq" title="Raye - Kho ảnh gái xinh">Raye.gq</a> - Kho ảnh gái xinh</div>
+                        <div><a href="https://chitose2d.blogspot.com" title="Chitose2D - Triết lý Anime/Manga/Light Novel">Chitose2D</a> - Triết lý Anime/Manga/Light Novel</div>
+                      </div>
+              		</div>
+              		{% endif %}
+                    <div class="footer_copy">
+                      <span class="{% if not is_login() %}copyright{% else %}hiddenText{% endif %}">
+                        <i class="fa fa-copyright"></i> 2018 - {{"now"|date("Y")}}
+                        <i class="fa fa-free-code-camp" aria-hidden="true"></i> Dorew<br />
+                        <i class="fa fa-gamepad"></i> Version G.S 0.2.0 
+                      </span>
+                    </div>
+                </div>
+            </dorew>
+              {% if is_login() %}
+              <div class="footer-icon"><div class="d-table">
+              	<div class="td20">
+                  <a href="/"><i class="fa fa-home{% if url[0] in ['',null,'index','index.php'] %} d-tab{% endif %}" aria-hidden="true"></i></a>
+                </div>
+                <div class="td20">
+                  <a href="/mail" title="Tin nhắn riêng"><i class="fa fa-envelope{% if url[0] == 'mail' and url[1] != 'system' %} d-tab{% else %}-o{% endif %}" aria-hidden="true"></i>{% if user.new_mail|split('.')|length-1 > '0' %}<span class="badge">{{user.new_mail|split('.')|length-1}}</span>{% endif %}</a>
+                </div>
+                <div class="td20">
+                  <a href="/play"><i class="fa fa-gamepad{% if url[0] == 'play' %} d-tab{% endif %}" aria-hidden="true"></i></a>
+                </div>
+                <div class="td20">
+                  <a href="/mail/system" title="Thông báo"><i class="fa fa-bell{% if url[0] == 'mail' and url[1] == 'system' %} d-tab{% else %}-o{% endif %}" aria-hidden="true"></i>{% if system_notify > '0' %}<span class="badge">{{system_notify}}</span>{% endif %}</a>
+                </div>
+                <div class="td20">
+                  <a href="/user"><i class="fa fa-user{% if url[0] == 'user' %} d-tab{% else %}-o{% endif %}" aria-hidden="true"></i></a>
+                </div>
+              </div></div>
+              <style>
+                .d-table{border-collapse:collapse;width:100%;display:table;text-align:center}
+                .d-table .td20{display:table-cell;width:20%;text-align:center}
+                .d-tab{color:#536162}
+                @media (max-width:350px){.footer_copy{padding:25px;text-align:center;background:none;}}
+              </style>
+              {% endif %}
+        </main>
+        <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <link href="https://fonts.googleapis.com/css?family=Quicksand" rel="stylesheet">
+        <script src="/app.js.get?name=sticky"></script>
+          {% if get_uri_segments()|last not in ['post','edit','upload-file','add-chap'] %}
+    	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.swipebox/1.4.4/js/jquery.swipebox.min.js"></script>
+    	<script src="/app.js.get?name=main&s=yes"></script>
+          {% else %}
+    	<script src="/app.js.get?name=main"></script>
+          {% endif %}
+    </body>
+</html>
+
+{% endblock %}
+
+{#===========================================================================================================#}
+
+{% block toolbar %}
+  {% set user = select_table_row_data('users', 'nick', is_login()) %}
+  {% set my_smile = user.smile|split('.') %}
+  {% set code = ['php','css','js','html','sql','twig'] %}
+  {% set color = ['bcbcbc', '708090', '6c6c6c', '454545','fcc9c9', 'fe8c8c', 'fe5e5e', 'fd5b36', 'f82e00','ffe1c6', 'ffc998', 'fcad66', 'ff9331', 'ff810f','d8ffe0', '92f9a7', '34ff5d', 'b2fb82', '89f641','b7e9ec', '56e5ed', '21cad3', '03939b', '039b80','cac8e9', '9690ea', '6a60ec', '4866e7', '173bd3','f3cafb', 'e287f4', 'c238dd', 'a476af', 'b53dd2'] %}
+  {% set vid = {'vid':'video','youtube':'youtube'} %}
+<div class="redactor_box" style="border-bottom: 1px solid #D7EDFC;margin-bottom:2px;">
+    <style>
+        .color a {
+            float: left;
+            display: block;
+            width: 10px;
+            height: 10px;
+            margin: 1px;
+            border: 1px solid black;
+        }
+        </div>
+    </style>
+    <script language="JavaScript"
+        type="text/javascript">function tag(e, t) { if (document.selection) document.form.msg.focus(), document.form.document.selection.createRange().text = e + document.form.document.selection.createRange().text + t; else if (null != document.forms.form.elements.msg.selectionStart) { var n = document.forms.form.elements.msg, o = n.value, s = n.selectionStart, l = n.selectionEnd - n.selectionStart; n.value = o.substr(0, s) + e + o.substr(s, l) + t + o.substr(s + l) } else document.form.msg.value += e + t } function show_hide(e) { obj = document.getElementById(e), "none" == obj.style.display ? obj.style.display = "block" : obj.style.display = "none" }</script>
+    <ul class="redactor_toolbar">
+        <li class="redactor_btn_group">
+            <a href="javascript:show_hide('colorShow')"><i class="fa fa-paint-brush" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[b]', '[/b]')"><i class="fa fa-bold" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[i]', '[/i]')"><i class="fa fa-italic" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[u]', '[/u]')"><i class="fa fa-underline" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[s]', '[/s]')"><i class="fa fa-strikethrough" aria-hidden="true"></i></a>
+        </li>
+        <li class="redactor_btn_group">
+            <a href="javascript:tag('[center]', '[/center]')"><i class="fa fa-align-center" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[right]', '[/right]')"><i class="fa fa-align-right" aria-hidden="true"></i></a>
+            <a href="javascript:show_hide('codeShow')"><i class="fa fa-code" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[url=]', '[/url]')"><i class="fa fa-link" aria-hidden="true"></i></a>
+            <a href="javascript:tag('[d]', '[/d]')"><i class="fa fa-download" aria-hidden="true"></i></a>
+        </li>
+        <li class="redactor_btn_group">
+            <a href="javascript:tag('[img]', '[/img]', '')"><i class="fa fa-picture-o" aria-hidden="true"></i></a>
+            <a href="javascript:show_hide('uploadN')"><i class="fa fa-cloud-upload" aria-hidden="true"></i></a>
+            <a href="javascript:show_hide('vidShow')"><i class="fa fa-play-circle" aria-hidden="true"></i></a>
+        </li>
+        <li class="redactor_btn_group">
+            <a href="javascript:show_hide('sm');"><i class="fa fa-smile-o" aria-hidden="true"></i></a>
+        </li>
+    </ul>
+    <div id="uploadN" style="display:none;"><iframe style="border: 0px none;" src="https://cloudflare-ipfs.com/ipfs/bafkreicrm45nb6zao3r3btqtthj7lbjzbvkh67lnls3ufd2m5vvnw227g4?filename=ua.html"  width="100%" height="auto"><p>Trình duyệt của bạn không hỗ trợ iframe.</p></iframe></div>
+	<div id="codeShow" style="display:none">
+      <div style="padding:2px">
+        {% for val in code %}
+        <a href="javascript:tag('[code={{val}}]', '[/code]', ''); show_hide('codeShow');" tabindex="-1" class="btn btn-default">{{val|upper}}</a>
+        {% endfor %}
+      </div>
+  	</div>
+    <div id="colorShow" style="display:none">
+      <div style="padding:2px">Màu chữ: 
+        {% for val in color %}
+        <a href="javascript:tag('[color=#{{val}}]', '[/color]', ''); show_hide('colorShow');" tabindex="-1" style="background-color:#{{val}};width:3px;height:3px">ㅤ</a>
+        {% endfor %}
+      </div>
+    </div>
+	<div id="vidShow" style="display:none">
+      <div style="padding:2px">
+        {% for k,v in vid %}
+        <a href="javascript:tag('[{{k}}]', '[/{{k}}]', ''); show_hide('vidShow');" tabindex="-1" class="btn btn-default">{{v|upper}}</a>
+        {% endfor %}
+      </div>
+  	</div>
+    <div id="sm" style="display:none">
+      {# sử dụng /api #}
+      {% set path_list = {'pepe':444,'ami':48,'moew':19,'qoopepe':17,'menhera':24,'dauhanh':131,'troll':132,'qoobee':127,'dora':303,'aru':119,'thobaymau':98,'nam':26,'le':72,'anya':15,'aka':24,'dui':15,'firefox':11,'conan':18} %}
+<div class="smile_container">
+  <table width="100%">
+    <tr>
+      <td width="30px">
+        <div class="sleft">
+          <div class="sitem" style="background-image:url(https://i.imgur.com/I3q38g7.png)" path="my"></div>
+          {% for path_img,total in path_list %}
+          <div class="sitem" style="background-image:url(https://dorew-site.github.io/assets/smileys/{{path_img}}/{{path_img}}1.png)" path="{{path_img}}"></div>
+          {% endfor %}
+        </div>
+      </td>
+      <td>
+        <div class="sright">
+          {% if my_smile|length-1 >= 1 %}
+          	{% for smile in my_smile %}{% if smile %}
+          <div class="ritem" style="background-image:url(https://dorew-site.github.io/assets/smileys/{{smile|preg_replace('/\\d+/', '')}}/{{smile}}.png)" smile=" :{{smile}}:"></div>
+        	{% endif %}{% endfor %}
+          {% else %}
+          <div>Chưa có smile cá nhân</div>
+          	{% for path_img,total in path_list %}
+          <div class="ritem" style="background-image:url(https://dorew-site.github.io/assets/smileys/{{path_img}}/{{path_img}}1.png)" smile=" :{{path_img}}1:"></div>
+          	{% endfor %}
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+      {#
+      	{% if my_smile|length-1 >= 1 %}
+        	{% for smile in my_smile %}{% if smile %}
+        <a href="javascript:tag(':{{smile}}:', ' '); show_hide('sm');"><img loading="lazy"
+                src="https://images.weserv.nl/?url=https://dorew-site.github.io/assets/smileys/{{type_smile(smile)|trim}}/{{smile}}.png"
+                width="50px" /></a>
+        	{% endif %}{% endfor %}
+      	{% else %}
+        	{% for i in 1..49 %}
+        <a href="javascript:tag(':aru{{i}}:', ' '); show_hide('sm');"><img loading="lazy"
+                src="https://images.weserv.nl/?url=https://moleys.github.io/assets/images/aru{{i}}.png"
+                width="50px" /></a>
+        	{% endfor %}
+        	{% for i in 1..17 %}
+        <a href="javascript:tag(':qoopepe{{i}}:', ' '); show_hide('sm');"><img loading="lazy"
+                src="https://images.weserv.nl/?url=https://moleys.github.io/assets/images/qoopepe{{i}}.png"
+                width="50px" /></a>
+        	{% endfor %}
+      	{% endif %}
+      #}
+    </div>
+{% endblock %}
+  
+{#===========================================================================================================#}
+  
+{% block chatbox %}
+  {% if login %}
+{% set idNow = get_table_count('chat') %}
+<div class="popup-box chat-popup" style="font-size:14px">
+  <div class="phdr popup-head" id="chatDorew-open">
+    <i class="fa fa-weixin" aria-hidden="true"></i> Trò chuyện{# ({{idNow}})#}
+  </div>
+  <div class="popup-box-hide" id="chatDorew">
+  <div class="popup-messages">
+    <div id="alert"></div>
+    <div id="postText"></div>
+    <div id="idChat"></div>
+  </div>
+  <div class="popup-messages-footer">
+    <form id="form" action="" method="POST" name="form">
+      <textarea id="status_message" placeholder="Có thể sử dụng bbcode..." cols="40" rows="10" name="msg"></textarea>
+      <div class="btn-footer">
+        <a id="upImgur"><button type="button" class="bg_none"><i class="fa fa-upload" aria-hidden="true"></i></button></a>
+        <a id="upIpfs"><button type="button" class="bg_none"><i class="fa fa-cube" aria-hidden="true"></i></button></a>
+        <button name="submit" id="submit" class="btn btn-warning btn-sm pull-right">Chat</button>
+        <input style="display:none" type="file" id="f-imgur" accept="image/*">
+        <input style="display:none" type="file" id="f-ipfs">
+        <input type="hidden" name="token" value="{{random(100000)}}"/>
+      </div>
+    </form>
+  </div>
+  </div>
+</div>
+<script>var totalChat = "{{get_table_count('chat')}}";</script>
+<script src="/chat_list_query.js" type="text/javascript"></script>
+  {% endif %}
+{% endblock %}

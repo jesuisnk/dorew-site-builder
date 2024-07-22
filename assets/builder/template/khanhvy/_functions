@@ -1,0 +1,184 @@
+{# Các hàm dùng chung cho tất cả các bảng #}
+
+{# rewirte url #}
+{% macro rwurl(data) %}{% spaceless %}{{rwurl(data)|replace({'.':'-'})|replace({'--':'-'})}}{% endspaceless %}{% endmacro %}
+
+{#biểu tượng vui#}
+{% macro type_smile(smile) %}{% set smile = smile|trim %}{% for k in smile|split('') %}{% if typetext(k, 'is_numeric') == false %}{{k|replace({'0':''})}}{% endif %}{% endfor %}{% endmacro %}
+
+{# xử lý cơ sở dữ liệu #}
+{% macro up(table_name, columns, v) %}
+{# 
+  dùng để lấy danh sách tin nhắn user
+  columns(array): {id,column}=>value
+  {"id":1,"column":"mail"} 
+#}
+{% set data = select_table_row_data(table_name, 'id', columns.id)[columns.column] %}
+{% if id_row %}
+{% set d = ' '~v~' @ ' %}
+{% set data = data|replace({(d):""}) %}
+{% set save = ' '~v~' @ '~data %}
+{% do update_row_table(table_name, columns.column, save, 'id', columns.id) %}
+{% endif %}
+{% endmacro %}
+
+{#tiền tố bài viết - chuyên mục con#}
+{% macro post_prefix(category,id_prefix,type) %}{% spaceless %}
+	{% if category == '16' %}{#thảo luận#}
+		{% set list_name = ['Nhật ký cuộc sống','Nhật ký tình yêu','Tâm sự tuổi hồng'] %}
+		{% set list_prefix = ['nhat-ky-cuoc-song','nhat-ky-tinh-yeu','tam-su-tuoi-hong'] %}
+		{% set list_name_prefix = {'nhat-ky-cuoc-song':'Nhật ký cuộc sống','nhat-ky-tinh-yeu':'Nhật ký tình yêu','tam-su-tuoi-hong':'Tâm sự tuổi hồng'} %}
+	{% elseif category == '14' %}{#chưa phân loại#}
+		{% set list_name = ['Thư viện truyện'] %}
+		{% set list_prefix = ['thu-vien-truyen'] %}
+		{% set list_name_prefix = {'thu-vien-truyen':'Thư viện truyện'} %}
+	{% endif %}
+	{% if type == 'rwurl' %}{{list_prefix[id_prefix-1]}}{% elseif type == 'name' %}{{list_name[id_prefix-1]}}{% elseif type in list_prefix %}{{list_name_prefix[type]}}{% else %}{{list_name_prefix}}{% endif %}
+{% endspaceless %}{% endmacro %}
+
+{#mô tả#}
+{% macro description(content,num) %}{% spaceless %}
+	{% set content = strip_tags(content|raw)|trim|replace({'\n':' ','&nbsp;':' ','&ldquo;':'','&rdquo;':'', '&ndash;':''}) %}
+	{{content|slice(0,num)}}{% if content|length > num %}...{% endif %}
+{% endspaceless %}{% endmacro %}
+
+{#===========================================================================================================#}
+
+{# đếm ngược thời gian #}
+{% macro ago(time_ago) %}
+{% spaceless %}
+{% set now = 'now'|date('U')-1160 %}
+{% set time_ago = time_ago|date('U')-1160 %}
+{% set timeht=now|date('U', 'Asia/Ho_Chi_Minh') %}
+{% set time = time_ago|date('U', 'Asia/Ho_Chi_Minh') %}
+{% set time_giay = timeht - time %}
+{% set time_phut = (time_giay / 60 )|round(0,'floor') %}
+{% set time_day = timeht|date('z', 'Asia/Ho_Chi_Minh')-time|date('z', 'Asia/Ho_Chi_Minh') %}
+{% set fulltime = time_ago|date('d.m.Y - H:i', 'Asia/Ho_Chi_Minh') %}
+{% set minitime = time_ago|date('H:i', 'Asia/Ho_Chi_Minh') %}
+{% if time_day == 0 %}
+{% if time_giay <= 60 %}
+{{time_giay}} giây trước
+{% elseif time_phut <= 60 %}
+{{time_phut}} phút trước
+{% else %}
+Hôm nay, {{minitime}}
+{% endif %}
+{% elseif time_day == 1 %}
+Hôm qua, {{minitime}}
+{% else %}
+{{fulltime}}
+{% endif %}
+{% endspaceless %}
+{% endmacro %}
+
+{#===========================================================================================================#}
+
+{# phân trang #}
+{% macro paging(trang,p,max,b) %}
+{% spaceless %}
+  {% if max > 1 %}
+    <center>
+      <div class="pagination">
+      {% set a='<a class="pagenav" href="/'~trang~'' %}
+      {% if p>max %}{% set p=max %}a{% endif %}
+      {% if p>1 %}
+      	{{a|raw}}{{p-1}}{{b}}">«</a>
+      {% endif %}
+      {% if p>3 %}
+      	{{a|raw}}1{{b}}">1</a>
+      {% endif %}
+      {% if p>4 %}
+      	<span>...</span>
+      {% endif %}
+      {% if p>2 %}
+      	{{a|raw}}{{p-2}}{{b}}">{{p-2}}</a>
+      {% endif %}
+      {% if p>1 %}
+      	{{a|raw}}{{p-1}}{{b}}">{{p-1}}</a>
+      {% endif %}
+      <span class="current"><b>{{p}}</b></span>
+      {% if p<max-1 %}
+      	{{a|raw}}{{p+1}}{{b}}">{{p+1}}</a>
+      {% endif %}
+      {% if p<max-2 %}
+      	{{a|raw}}{{p+2}}{{b}}">{{p+2}}</a>
+      {% endif %}
+      {% if p<max-3 %}
+      	<span>...</span>
+      {% endif %}
+      {% if p<max %}
+      	{{a|raw}}{{max}}{{b}}" class="next">{{max}}</a>
+      {% endif %}
+      {% if p<max %}
+      	{{a|raw}}{{p+1}}{{b}}">»</a>
+      {% endif %}
+
+      </div>
+    </center>
+  {% endif %}
+{% endspaceless %}
+{% endmacro %}
+
+{#===========================================================================================================#}
+
+{% macro checkExtension(one) %}
+{% if one|split('.')|last == 'jpg' or  one|split('.')|last == 'png' or one|split('.')|last == 'webp' or one|split('.')|last == 'psd' or one|split('.')|last == 'heic' %}file-image-o{% elseif one|split('.')|last == 'mp4' or  one|split('.')|last == 'mkv' or one|split('.')|last == 'webm' or one|split('.')|last == 'flv' or one|split('.')|last == '3gp' %}file-video-o{% elseif one|split('.')|last == 'mp3' or  one|split('.')|last == 'mkv' or one|split('.')|last == 'm4a' or one|split('.')|last == 'flac' or one|split('.')|last == 'wav' %}file-audio-o{% elseif one|split('.')|last == 'docx' or  one|split('.')|last == 'doc' or one|split('.')|last == 'txt' or one|split('.')|last == 'md' or one|split('.')|last == 'odt' %}file-text-o{% elseif one|split('.')|last == 'txt' or one|split('.')|last == 'md' %}file-text-o{% elseif one|split('.')|last == 'docx' or one|split('.')|last == 'doc' or one|split('.')|last == 'odt' %}file-word-o{% elseif one|split('.')|last == 'xls' or one|split('.')|last == 'xlsx' %}file-excel-o{% elseif one|split('.')|last == 'ppt' or one|split('.')|last == 'pptx' %}file-powerpoint-o{% elseif one|split('.')|last == 'pdf' %}file-pdf-o{% elseif one|split('.')|last == 'zip' or one|split('.')|last == 'rar' or one|split('.')|last == '7z' or one|split('.')|last == 'tar' %}file-archive-o{% elseif one|split('.')|last == 'cpp' or one|split('.')|last == 'cs' or one|split('.')|last == 'php' or one|split('.')|last == 'html' or one|split('.')|last == 'js' or one|split('.')|last == 'py' %}file-code-o{% elseif one|split('.')|last == 'sql' %}database{% else %}file-o{% endif %}
+{% endmacro %}
+
+{#===========================================================================================================#}
+
+{% macro size(byte) %}{% if byte >= '1073741824' %}{% set show = (byte|trim/1073741824)|round(2,'floor')~' GB' %}{% elseif byte >= '1048576' %}{% set show = (byte|trim/1048576)|round(2,'floor')~' MB' %}{% elseif byte >= '1024' %}{% set show = (byte|trim/1024)|round(2,'floor')~' Kb' %}{% else %}{% set show = byte~' byte' %}{% endif %}{{show}}{% endmacro %}
+
+{#===========================================================================================================#}
+
+{% macro imgurUploadTextarea() %}
+<script>
+function imgur(f, ob) {
+	var files = document.querySelector(f);
+	files.onchange = function () {
+		var file = this.files[0];
+		if (file && file.type.match(/image.*/)) {
+			var fd = new FormData();
+			fd.append("image", file);
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "https://api.imgur.com/3/image.json");
+			xhr.upload.onprogress = function (e) {
+				if (e.lengthComputable) {
+					var percent = Math.floor((e.loaded / e.total) * 100) + '%';
+					ob.loading(percent)
+				}
+			};
+			xhr.onload = function () {
+				var imgs;
+				var res = JSON.parse(xhr.responseText);
+				if (res.status === 200 && res.success === !0) {
+					var data = res.data;
+					ob.loaded(data.link, data.type, data.size, data.datetime)
+				} else {
+					window.alert('Lỗi: tải lên thất bại')
+				}
+			}
+			xhr.setRequestHeader('Authorization', 'Client-ID 71ae7b89253621e');
+			xhr.send(fd)
+		} else {
+			window.alert('Chỉ cho phép chọn ảnh')
+		}
+	}
+}
+
+document.querySelector("#upload").onclick = function () {
+	document.querySelector("#f").click();
+}
+imgur("#f", {
+	loading: function (load) {
+		document.querySelector("#upload").innerHTML = '<i class="fa fa-upload" aria-hidden="true"></i> ' + load
+	},
+	loaded: function (link, size, type, time) {
+		var input = $("textarea").val();
+		$("textarea").val(input+" [img]"+link+"[/img]");
+		document.querySelector("#upload").innerHTML = '[ <i class="fa fa-upload" aria-hidden="true"></i> Upload Ảnh]';
+	}
+})
+</script>                 
+{% endmacro %}

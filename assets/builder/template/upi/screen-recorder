@@ -1,0 +1,73 @@
+
+{% use '_layout' %}
+{% from '_functions' import layout %}
+{% set title= 'Screen Recorder' %}
+{{block('header')}}
+
+
+
+<div class="phdr"><i class="fa fa-video-camera" aria-hidden="true"></i> Screen Recorder </div>
+
+{% if layout()|trim != 'wap' %}
+
+  <div class="menu" align="center">
+    <div style="max-width: 600px; margin: 10px">
+      <video class="video" style="max-width: 500px;" controls></video><br/>
+      <button style="margin: 5px; padding: 12px 25px; font-size: 16px;" class="record-btn">Record</button><br/>
+    </div>
+  </div>
+  <script>
+
+    let btn = document.querySelector(".record-btn")
+
+    btn.addEventListener("click", async function () {
+        let stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true, audio: true
+        });
+
+        //needed for better browser support
+        const mime = MediaRecorder.isTypeSupported("video/webm; codecs=vp9")
+          ? "video/webm; codecs=vp9"
+          : "video/webm";
+        let mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mime,
+        });
+
+        let chunks = []
+        mediaRecorder.addEventListener('dataavailable', function(e) {
+            chunks.push(e.data)
+        })
+
+        stream.getVideoTracks()[0].onended = function () {
+          mediaRecorder.stop();
+        };
+
+        mediaRecorder.addEventListener('stop', function(){
+          let blob = new Blob(chunks, {
+              type: chunks[0].type
+          })
+          let url = URL.createObjectURL(blob)
+
+          let video = document.querySelector("video")
+          video.src = url
+
+          let a = document.createElement('a')
+          a.href = url
+          a.download = 'video.webm'
+          a.click()
+      })
+
+        //we have to start the recorder manually
+        mediaRecorder.start()
+    })
+  </script>
+
+{% else %}
+  <div class="menu" align="center">
+    <div style="margin: 40px">Trình duyệt này không được hỗ trợ!</div>
+  </div>
+{% endif %}
+
+
+
+{{block('footer')}}

@@ -1,0 +1,37 @@
+{% from '_functions' import ago,rwurl,paging,post_prefix %}
+{% from '_users' import maunick %}
+{% set table_name = 'blog' %}
+
+{% set total = get_table_count('chat') %}
+{% set per = '10' %}
+{% set page_max = total//per %}
+{% if total//per != total/per %}
+{% set page_max = total//per+1 %}
+{% endif %}
+{% set p=get_get('page')|default(1) %}
+{% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+{% if p > page_max %}{% set p = page_max %}{% endif %}
+{% set st=p*per-per %}
+
+    {% set data = select_table_limit_offset(table_name,per,st,'update_time', 'desc') %}
+    {% for blog in data %}
+      {% if blog.id %}
+        {% set cat = select_table_row_data('category', 'id', blog.category).name %}
+  		{% set news = select_table_row_data('news', 'blogid', blog.id) %}
+        <div class="{% if blog.sticked=='y' %}sticked{% else %}list1{% endif %}">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td>
+                <span class="topic cat_{{random(['red','blue','green','orange'])}}"> {% if news.id %}Bảng tin{% elseif blog.prefix != NULL %}{{post_prefix(blog.category,'0',blog.prefix)}}{% else %}{{cat}}{% endif %}</span> 
+                {% if blocked=='y' %}<i class="fa fa-lock" style="color:red" aria-hidden="true"></i> {% endif %}<a  data-instant href="/forum/{{blog.id}}-{{blog.slug}}.html"> {{html_decode(blog.title)}}</a>
+                <div class="sub"><small><i class="fa fa-pencil-square-o" aria-hidden="true"></i> <a href="/user/{{blog.author}}"> 
+{{maunick(blog.author)}}</a> / <i class="fa fa-eye" aria-hidden="true"></i> {{blog.view}} / <i class="fa fa-clock-o"></i> {{ago(blog.time)}}</small></div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      {% endif %}
+    {% endfor %}
+    
+    
+    

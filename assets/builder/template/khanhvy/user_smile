@@ -1,0 +1,143 @@
+{% from '_functions' import paging %}
+{% set url = get_uri_segments() %}
+{% if url[0] == 'user_smile' %}{{redirect('/error')}}{% endif %}
+
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% set my_list = user.smile|trim|split('.') %}
+{% set total_my_smile = my_list|length-1 %}
+{% set action = get_get('act') %}
+{% if action == 'add' %}
+	{% set name = 'Thêm vào cá nhân' %}
+{% elseif action == 'del' %}
+	{% set name = 'Xóa khỏi danh sách' %}
+{% else %}
+	{% set name = 'Cá nhân' %}
+{% endif %}
+
+<div class="phdr"><i class="fa fa-smile-o" aria-hidden="true"></i> <a href="/users/smile">Danh sách smile</a> | {{name}}</div>
+{% set act,id = get_get('smile')|lower,get_get('id') %}
+{% if act in ['pepe','ami','qoopepe','moew','menhera','dauhanh','troll','qoobee','dora','aru','thobaymau','nam','le','anya','aka','dui','firefox','conan'] and action == 'add' or action == 'del' %}
+	{% if act == 'pepe' %}
+		{% set total = '444' %}
+	{% elseif act == 'ami' %}
+		{% set total = '48' %}
+	{% elseif act == 'moew' %}
+		{% set total='19' %}
+	{% elseif act == 'qoopepe' %}
+		{% set total = '17' %}
+	{% elseif act == 'menhera' %}
+		{% set total = '24' %}
+	{% elseif act == 'dauhanh' %}
+		{% set total = '131' %}
+	{% elseif act == 'troll' %}
+		{% set total = '132' %}
+	{% elseif act == 'qoobee' %}
+		{% set total = '127' %}
+	{% elseif act == 'dora' %}
+		{% set total = '303' %}
+	{% elseif act == 'aru' %}
+		{% set total = '119' %}
+	{% elseif act == 'thobaymau' %}
+		{% set total = '98' %}
+	{% elseif act == 'nam' %}
+		{% set total = '26' %}
+	{% elseif act == 'le' %}
+		{% set total = '72' %}
+	{% elseif act == 'anya' %}
+		{% set total = '15' %}
+	{% elseif act == 'aka' %}
+		{% set total = '24' %}
+	{% elseif act == 'dui' %}
+		{% set total = '15' %}
+	{% elseif act == 'firefox' %}
+		{% set total = '11' %}
+	{% elseif act == 'conan' %}
+		{% set total = '18' %}
+	{% endif %}
+	{% if id in 1..total and action == 'add' or action == 'del' %}
+<div class="menu">
+		{% if action == 'add' %}
+			{% if act~id not in my_list %}
+				Bạn có chắc chắc muốn thêm smile này vào dữ liệu cá nhân?
+			{% else %}
+				Trong danh sách của bạn, đã có smile này rồi :))
+			{% endif %}
+		{% else %}
+			{% if act in my_list %}
+				Bạn có chắc chắc muốn xóa smile này khỏi dữ liệu cá nhân?
+			{% else %}
+				Smile này không tồn tại trong danh sách dữ liệu của bạn =))
+			{% endif %}
+		{% endif %}
+  <div class="sub"></div>
+  <img src="https://moleys.github.io/assets/images/{{act~id}}.png" alt="{{act~id}}"/>
+  <b>:{{act~id}}:</b>
+  		{% if total_my_smile <= 67 %}
+			{#{% if request_method()|lower == 'post' %}#}
+                {% set save_smile = act~id %}
+				{% if save_smile not in my_list and action == 'add' %}
+                   	{% if user.smile in ['',' ',null,NULL] %}
+                    	{% set smSave = save_smile %}
+                    {% else %}
+                    	{% set smSave = user.smile~save_smile %}
+                    {% endif %}
+					{{update_row_table('users', 'smile', smSave~'.', 'nick', is_login())}}
+                    {{redirect('/users/smile?act='~act)}}
+                {% elseif act in my_list and action == 'del' %}
+                	{% do update_row_table('users', 'smile', user.smile|replace({(act~'.'):''}), 'nick', is_login()) %}
+                    {{redirect('/users/smile/list')}}
+                {% endif %}
+            {#{% endif %}#}
+        {% else %}
+  <div style="color:red">Đã đạt tối đa giới hạn smile cá nhân (Max. 67)</div>
+        {% endif %}
+		{% if action in ['add','del'] and total_my_smile <= 67 %}
+  <form method="post" action="">
+		{% endif %}
+	<p><b>Copy:</b><input value=":{{act~id}}:" type="text"{% if action in ['add','del'] and total_my_smile <= 67 %} name="yes"{% endif %} class="form-control"></p>
+		{% if action in ['add','del'] and total_my_smile <= 67 %}
+	<p><button type="submit" class="btn btn-primary btn-block" name="submit" value="Đồng ý">Đồng ý</button></p>
+  </form>
+		{% endif %}
+	{% else %}
+		{{redirect('/users/smile/list')}}
+	{% endif %}
+</div>
+{% else %}
+	{#danh sách cá nhân#}
+	{% set data = my_list %}
+	{% set total = total_my_smile %}
+  	{% set per = '20' %}
+	{% set page_max=total//per %} 
+	{% if total//per != total/per %} 
+		{% set page_max=total//per+1 %} 
+	{% endif %} 
+	{% set p= get_get('p')|default(1) %}
+	{% if p matches '/[a-zA-z]|%/' or p<1 %} 
+		{% set p=1 %} 
+	{% endif %}
+	{% if p>page_max %} 
+		{% set p=page_max %} 
+	{% endif %} 
+	{% set st=p*per-per %}
+      <style>ul.list-smile{list-style-position:outside;margin:0;padding:0;list-style-type:none;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-flow:row wrap;-ms-flex-flow:row wrap;flex-flow:row wrap;margin-left:-5px;margin-right:-5px}.list-smile>li{text-align:center;padding-top:15px;padding-left:5px;padding-right:5px;min-width:0}</style>
+      {% if total >= 1 %}
+      <div class="menu">
+        <ul class="list-smile">
+          {% for i in data|slice(st,per) %}
+          	{% if i %}
+          <li>
+            <div class="add"><a href="/users/smile/list?act=del&smile={{i}}">[ X ]</a></div>
+            <img src="https://dorew-site.github.io/assets/smileys/{{i|preg_replace('/\\d+/', '')}}/{{i}}.png" alt="{{i}}"/>
+            <div class="info"><b>:{{i}}:</b></div>
+          </li>
+          	{% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+      {{paging('?p=',p,page_max)|replace({'/?':'?'})|raw}}
+      {% else %}
+      <div class="menu">Danh sách trống!</div>
+      {% endif %}
+  {#end danh sách cá nhân#}
+{% endif %}

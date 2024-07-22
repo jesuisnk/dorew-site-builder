@@ -1,0 +1,216 @@
+{% set url = get_uri_segments() %}
+{% if url[1] == 'married' %}
+	{% include 'user_married' %}
+{% elseif url[1] not in ['tag.txt','married'] %}
+{% use '_layout' %}
+
+{% set title %}{% if url[1] == 'smile'  %}Biểu tượng vui{% if url[2] == 'list' and is_login() %} của tôi{% endif %}{% else %}Thành viên{% endif %}{% endset %}
+{% set title = title|trim %}
+{{block('head')}}
+{% from '_functions' import paging %}
+{% from '_users' import maunick,getAvtUser,buariu %}
+
+{% set w3_main4px_content %}
+<div class="mainblok">
+{% if url[1] == 'smile' %}
+{#=========SMILE LIST=========#}
+{% set act = get_get('act') %}
+
+  {% if url[2] == 'list' %}
+{#========SMILE CÁ NHÂN=======#}
+  	{% include 'user_smile' %}
+{#======END SMILE CÁ NHÂN=====#}
+  {% else %}
+  {#==========================#}
+{% if act in ['pepe','ami','qoopepe','moew','menhera','dauhanh','troll','qoobee','dora','aru','thobaymau','nam','le','anya','aka','dui','firefox','conan'] %}
+{% if act=='pepe' %}
+{% set total='444' %}
+{% elseif act=='ami' %}
+{% set total='48' %}
+{% elseif act=='moew' %}
+{% set total='19' %}
+{% elseif act=='qoopepe' %}
+{% set total='17' %}
+{% elseif act=='menhera' %}
+{% set total='24' %}
+{% elseif act=='dauhanh' %}
+{% set total='131' %}
+{% elseif act=='troll' %}
+{% set total='132' %}
+{% elseif act=='qoobee' %}
+{% set total='127' %}
+{% elseif act=='dora' %}
+{% set total='303' %}
+{% elseif act=='aru' %}
+{% set total='119' %}
+{% elseif act=='thobaymau' %}
+{% set total='98' %}
+{% elseif act=='nam' %}
+{% set total='26' %}
+{% elseif act=='le' %}
+{% set total='72' %}
+{% elseif act=='anya' %}
+{% set total='15' %}
+{% elseif act=='aka' %}
+{% set total='24' %}
+{% elseif act=='dui' %}
+{% set total='15' %}
+{% elseif act=='firefox' %}
+{% set total='11' %}
+{% elseif act=='conan' %}
+{% set total='18' %}
+{% endif %}
+{% if act=='thobaymau' %}
+{% set smile2='Thỏ bay màu' %}
+{% elseif act=='le' %}
+{% set smile2='Fix bug cùng lê' %}
+{% elseif act=='aka' %}
+{% set smile2='Quỳnh Aka' %}
+{% elseif act=='dui' %}
+{% set smile2='Nguyễn Văn Dúi' %}
+{% elseif act=='conan' %}
+{% set smile2='Thám tử Conan' %}
+  
+{% else %}
+{% set smile2=act|capitalize %}
+{% endif %}
+{% set smile=act|capitalize %}
+{% set for %}
+{% for sm in 1..total %}
+{% if sm==total %}
+:{{act}}{{sm}}:
+{% else %}
+:{{act}}{{sm}}: 
+{% endif %}
+{% endfor %}
+{% endset %}
+{% set data=for|split(' ') %}
+{% endif %}
+
+{% set total=data|length %}
+  {% set per = '34' %}
+{% set page_max=total//per %} 
+{% if total//per != total/per %} 
+{% set page_max=total//per+1 %} 
+{% endif %} 
+{% set url=get_uri_segments() %} 
+{% set p= get_get('p')|default(1) %}
+{% if p matches '/[a-zA-z]|%/' or p<1 %} 
+{% set p=1 %} 
+{% endif %}
+{% if p>page_max %} 
+{% set p=page_max %} 
+{% endif %} 
+{% set st=p*per-per %}
+<div class="phdr"><i class="fa fa-smile-o" aria-hidden="true"></i> <a href="/users/smile">Danh sách smile</a>{% if act!='' and act!=null %} | {{smile2}} ({{total}}){% endif %}</div>
+{% if is_login() %}
+<div class="list1"><i class="fa fa-square" aria-hidden="true"></i> <a href="/users/smile/list" style="color:darkviolet;font-weight:700">Smile của tôi ({{select_table_row_data('users','nick',is_login()).smile|split('.')|length|default(1)-1}})</a></div>
+{% endif %}
+  <style>ul.list-smile{list-style-position:outside;margin:0;padding:0;list-style-type:none;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-flex-flow:row wrap;-ms-flex-flow:row wrap;flex-flow:row wrap;margin-left:-5px;margin-right:-5px}.list-smile>li{text-align:center;padding-top:15px;padding-left:5px;padding-right:5px;min-width:0}</style>
+{% if act!='' and act!=null %}
+<div class="menu"><ul class="list-smile">
+{% for i in data|slice(st,per) %}
+{% set img=i|replace({':': ""}) %}
+  <li>
+    {% if is_login() %}<div class="add"><a href="/users/smile/list?act=add&smile={{smile|lower}}&id={{i|replace({':':'',(smile|lower):''})}}">[ + ]</a></div>{% endif %}
+    <img src="https://dorew-site.github.io/assets/smileys/{{smile|lower}}/{{img}}.png" alt="{{img}}"/>
+    <div class="info"><b>{{i}}</b></div>
+    
+  </li>
+{% endfor %}
+</ul></div>
+ {{paging('?act='~get_get('act')~'&p=',p,page_max)|replace({'/?':'?'})|raw}} 
+{% else %}
+{% for sm in ['pepe.444','ami.48','qoopepe.17','moew.19','menhera.24','dauhanh.131','troll.132','qoobee.127','dora.303','aru.119','thobaymau.98','nam.26','le.72','anya.15','aka.24','dui.15','firefox.11','conan.18'] %}
+<div class="list1"><i class="fa fa-square-o" aria-hidden="true"></i> <a href="?act={{sm|split('.')[0]}}">{% if sm|split('.')[0]=='thobaymau' %}Thỏ bay màu{% elseif sm|split('.')[0]=='le' %}Fix bug cùng lê{% elseif sm|split('.')[0]=='aka' %}Quỳnh Aka{% elseif sm|split('.')[0]=='dui' %}Nguyễn Văn Dúi{% elseif sm|split('.')[0]=='conan' %}Thám tử Conan{% else %}{{sm|split('.')[0]|capitalize}}{% endif %} ({{sm|split('.')[1]}})</a></div>
+{% endfor %}
+{% endif %}
+  {#==========================#}
+  {% endif %}
+{#=======END SMILE LIST=======#}
+{% else %}
+{#=======NOT SMILE LIST=======#} 
+{% if is_login() %}
+  {% if url[1] == 'admin' %}
+{#==============================================================================#}
+  <div class="phdr">Ban quản trị</div>
+  {% for user in query_select_table('users','*','WHERE `level` >= "120" ORDER BY name,level DESC') %}
+        {% if user.id %}
+  		{#=====THỐNG KÊ CỦA USER=====#}
+  			{% set postforum = get_row_count('blog',{'author':user.nick,'operator':'='})|default(0)+get_row_count('cmt',{'author':user.nick,'operator':'='})|default(0)+get_row_count('chap',{'author':user.nick,'operator':'='})|default(0) %}
+  			{% set chatbox = get_row_count('chat',{'name':user.nick,'operator':'='})|default(0) %}
+  		{#===END THỐNG KÊ CỦA USER===#}
+    <div class="mainblok" style="margin-top:0;border-top:0;border-left:0;border-right:0">
+    <div class="postprofile">
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img src="{{getAvtUser(user.nick)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{user.nick}}">{{maunick(user.nick)}}</a></div>
+          <div>ID: {{user.id}}, Level: {{user.level}}</div>
+        </div>
+        <div class="profileMoreInfo">
+          <div>{{buariu(postforum)}}</div>
+        </div>
+      </div>
+  </div>
+  </div>
+        {% endif %}
+  {% endfor %}
+{#==============================================================================#}
+  {% else %}
+{#==============================================================================#}
+  <div class="phdr">Danh sách</div>
+    {% set total = get_table_count('users') %}
+    {% set per = '10' %}
+    {% set page_max = total//per %}
+    {% if total//per != total/per %}
+      {% set page_max = total//per+1 %}
+    {% endif %}
+    {% set p=get_get('page')|default(1) %}
+    {% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+    {% if p > page_max %}{% set p = page_max %}{% endif %}
+    {% set st=p*per-per %}
+    {% if total == '0' %}
+      <div class="menu">Trống!</div>
+    {% else %}
+      {% set data = select_table_limit_offset('users',per,st,'id') %}
+      {% for user in data %}
+        {% if user.id %}
+  		{#=====THỐNG KÊ CỦA USER=====#}
+  			{% set postforum = select_table_where_data('cmt', 'author', user.nick)|length+select_table_where_data('blog', 'author', user.nick)|length-2 %}
+  			{% set chatbox = select_table_where_data('chat', 'name', user.nick)|length-1 %}
+  		{#===END THỐNG KÊ CỦA USER===#}
+    <div class="mainblok" style="margin-top:0;border-top:0;border-left:0;border-right:0">
+    <div class="postprofile">
+      <div class="postprofileInner">
+        <div class="profileAvatar"><img src="{{getAvtUser(user.nick)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser imgAvt-{{user.nick}}" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{user.nick}}">{{maunick(user.nick)}}</a></div>
+          <div>ID: {{user.id}}{#, <i class="fa fa-weixin" aria-hidden="true"></i> {{postforum+chatbox}}#}</div>
+        </div>
+        <div class="profileMoreInfo">
+          <div>{{buariu(postforum)}}</div>
+        </div>
+      </div>
+  </div>
+  </div>
+        {% endif %}
+      {% endfor %}
+  {% endif %}
+  {{paging('users?page=',p,page_max)|replace({'/=':'/'})|raw}}
+{#==============================================================================#}
+  {% endif %}
+{% else %}
+<div class="rmenu">Chỉ hiện thị cho thành viên diễn đàn.</div>
+{% endif %}
+{#=====END NOT SMILE LIST=====#} 
+{% endif %}
+</div>
+{% endset %}
+{{block('w3_main4px')}}
+
+
+{{block('end')}}
+{% else %}
+{% for user in select_table_data('users', 'id', 'asc') %}{% if user.id %}{{user.nick}} @ {% endif %}{% endfor %}
+{% endif %}

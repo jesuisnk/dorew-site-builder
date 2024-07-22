@@ -1,0 +1,239 @@
+{% use '_layout' %}
+{% use '_blog' %}
+{% from '_functions' import ago,rwurl,paging %}
+{% from '_users' import maunick,getAvtUser,auto %}
+{% from '_bbcode' import bbcode %}
+{% set system_bot = select_table_row_data('system','id',1).bot %}
+{% set info_system_bot = select_table_row_data('users', 'nick', system_bot) %}
+
+{% set table_name = 'penalty_turn' %}
+{# table: penalty_turn - column: player1,player2,point,catch,time,result,point_result#}
+{# point(xu cược),catch(kèo: trai/goctrao/phai/gocphai),time(tạo kèo),result(thang/thua/chuabat),point_result(hoa->player1-90%,thang->player2-100%) #}
+{# tối đa tạo kèo: 5 kèo/player #}
+{# hihi, đừng sửa file này, đấm toè mỏ đấy #}
+{% set url = get_uri_segments() %}
+{% set act = get_get('act') %}
+{% set user = select_table_row_data('users', 'nick', is_login()) %}
+{% if is_login() %}
+{% if url[0] == 'play_penalty' %}{{block('head')}}{% endif %}
+	{% if url[0] == 'play' and url[1] == 'penalty' %}
+		{% set list_my_turn = select_table(table_name, '*', {'player1':is_login(),'result':'chuabat'}, 'id', 'desc', {'start':0,'end':5}) %}
+		{% set count_my_turn = select_table(table_name, '*', {'player1':is_login(),'result':'chuabat'}, 'id', 'desc', '', 'count') %}
+<div class="w3-right-align">
+  <a href="?act=top" class="btn btn-success btn-sm">Top</a>
+  <a href="?act=create" class="btn btn-primary btn-sm margin-left">Đặt kèo <span class="badge"><b class="red">{{count_my_turn|default(0)}}</b> / 5</span></a>
+</div>
+<div class="mainblok">
+{% if act in ['create','catch','top'] %}
+	{% if act == 'create' %}
+  <div class="phdr"><i class="fa fa-futbol-o" aria-hidden="true"></i> Tạo kèo</div>
+  {% if request_method()|lower == 'post' %}
+  	{#=====TẠO KÈO=====#}
+  		{% set sut_bong = get_post('ball')|lower %}
+  		{% set point = get_post('point') %}
+  		{% set point_result = point - (point//10) %}
+  		{% if sut_bong not in ['goctrai','trai','gocphai','phai'] %}
+  			{% set notice = 'Kèo giao đấu không hợp lệ' %}
+  		{% elseif (point % 10) != '0' or point not in 100..200000 or point > user.do or user.do < 100 %}
+            {% set notice = 'Điểm cược không hợp lệ hoặc bạn không đủ điều kiện để tạo kèo' %}
+        {% elseif count_my_turn >= '5' %}
+  			{% set notice = 'Đã hết lượt tạo ván chơi. Vui lòng quay lại sau!' %}
+  		{% endif %}
+  		{% if notice %}
+  <div class="rmenu">{{notice}}</div>
+  		{% else %}
+  			{% set save_turn = {'player1':is_login(),'ip_player1':ip(),'point':point,'catch':sut_bong,'time':'now'|date('U'),'result':'chuabat','point_result':point_result} %}
+  			{#===CHUYỂN ĐIỂM ONL===#}
+			{% do update_row_table('users', 'do', (user.do - point), 'nick', is_login()) %}
+  			{% do insert_row_array_table(table_name, save_turn) %}
+  			{#=END CHUYỂN ĐIỂM ONL=#}
+  			{#======THÔNG BÁO======#}
+  			{% if count_my_turn >= '4' %}
+  				{% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':'@'~is_login()~' vừa tạo kèo trong [url=/play/penalty]Vua phá lưới[/url], với mức cược [b]'~point~'[/b] Tiềm lực. Mọi người cùng bắt kèo nào'}) %}
+  			{% endif %}
+  			{#====END THÔNG BÁO====#}
+  <div class="gmenu">Tạo kèo thành công, mức cược: <b>{{point}}</b> điểm!</div>
+  		{% endif %}
+  	{#===END TẠO KÈO===#}
+  {% else %}
+  <div class="notice" style="margin-top:0;font-size:14px;padding:4px;text-align:left;line-height:1.2em">
+    <div><b>Quy tắc</b></div>
+    <div>- Đặt cược từ 100 đến 200000 Tiềm lực và là bội của 10!</div>
+    <div>- Các thành viên khác có thể vào phòng để bắt kèo.</div>
+    <div>- Người thua sẽ mất số điểm bằng số điểm đặt cược, người thắng nhận được 90% số điểm đặt cược!</div>
+    <div>- Người chơi <b>bán độ</b> sẽ bị khoá tài khoản.</div>
+  </div>
+  <div class="menu" style="text-align:center">Bạn muốn sút bóng theo hướng nào?</div>
+  {% endif %}
+  {% if count_my_turn >= '5' %}{% set disabled = ' disabled' %}{% endif %}
+  <form method="post">
+{{_self.goal(disabled)}}
+  <div class="gmenu" style="font-size:15px;text-align:center">{% if count_my_turn >= '5' %}Rất tiếc, bạn đã hết lượt tạo kèo.{% else %}Bạn hãy chọn hướng rồi ấn vào hình quả bóng để sút! <b>Lưu ý: Hãy nhập số điểm cược trước khi sút bóng!</b>{% endif %} Hãy mời một người chơi bất kỳ để bắt goal nhé ^^</div>
+    {% set max_point %}{% if user.do >= '200000' %}200000{% else %}{{user.do}}{% endif %}{% endset %}
+  <div class="menu" style="text-align:center">
+    <p><b>Số điểm cược</b> (100{% if user.do > '100' %} - {{max_point}}{% endif %} Tiềm lực)</p>
+    <p><input type="number" min="100" max="{{max_point}}" value="{{get_post('point')|default('100')}}" name="point"{{disabled}}></p><p><button type="submit"{{disabled}}>Sút bóng</button></p></div>
+  </form>
+  {% if count_my_turn > '0' %}
+  	{% for my_turn in list_my_turn %}
+  {% if my_turn.id %}<div class="menu">Chọn sút bóng <b>{{my_turn.catch|replace({'goctrai':'góc trái','trai':'bên trái','gocphai':'góc phải','phai':'bên phải'})}}</b>, mức cược <b>{{my_turn.point}} điểm</b> ({{ago(my_turn.time)}})</div>{% endif %}
+  	{% endfor %}
+  {% endif %}
+{#=============================================================================#}
+	{% elseif act == 'catch' %}
+  		{% set id = get_get('id') %}
+  		{% set turn = select_table_row_data(table_name, 'id', id) %}
+  		{% set dplayer1 = select_table_row_data('users', 'nick', turn.player1) %}
+  <div class="phdr"><i class="fa fa-futbol-o" aria-hidden="true"></i> Goal - Bắt bóng</div>
+  		{% if turn.result == 'chuabat' %}
+  			{% if turn.player1 == is_login() %}
+ 				{% set notice = 'Bạn không thể bắt bóng cho kèo này khi bản thân chính là người sút bóng!' %}
+			{% elseif ip() == turn.ip_player1 or user.level < '0' %}
+                {% if user.level >= '0' %}
+  					{% set time_ban = 'now'|date('U') + 60*60*24*7 %}
+    				{% set array_row = {'name':system_bot,'time':'now'|date('U'),'comment':'Hai người chơi @'~turn.player1~' và @'~is_login()~' vừa được đi gặp bụt vì đã bán độ trong [url=/play/penalty]Vua phá lưới[/url]'} %}
+    				{% do insert_row_array_table('chat', array_row) %}
+  {#
+      				{% do update_row_array_table(table_name, {'player2':is_login(),'result':'thua'}, 'nick', turn.player1) %}
+      				{% do update_row_array_table(table_name, {'player2':turn.player1,'result':'thua'}, 'nick', is_login()) %}
+  #}
+    				{% do update_row_table('users', 'level', '-1', 'nick', turn.player1) %}
+  					{% do update_row_table('users', 'time_ban', time_ban~' | bán độ', 'nick', turn.player1) %}
+  					{% do update_row_table('users', 'level', '-1', 'nick', is_login()) %}
+    				{% do update_row_table('users', 'time_ban', time_ban~' | bán độ', 'nick', is_login()) %}
+  				{% endif %}
+				{% set notice = 'Bạn đã bị đình chỉ khi tham gia bắt bóng cho kèo này, và tài khoản của bạn sẽ bị khóa đến khi được BQT mở lại!' %}
+  			{% else %}
+    			{% if request_method()|lower == 'post' %}
+  					{% set bat_bong = get_post('ball') %}
+  					{% if bat_bong not in ['goctrai','trai','gocphai','phai'] %}
+  						{% set notice_request = 'Bạn không được bắt ở vị trí đã chọn' %}
+  					{% elseif user.do < turn.point %}
+  						{% set notice_request = 'Bạn không đủ điều kiện để bắt kèo này' %}
+  					{% endif %}
+            		{% if notice_request %}
+  <div class="rmenu" style="text-align:center"><b>Lỗi!</b><br/>{{notice_request}}</div>
+            		{% else %}
+  						{% set MSK = turn.time|md5|slice(0,5)|upper %}
+            			{% if turn.catch == bat_bong %}
+  							{% set save_result = 'thua' %}
+  							{% set notify_chat = 'Xin chia buồn với @'~turn.player1~' ! Thủ môn @'~is_login()~' đã bắt được bóng theo hướng sút của bạn. [i](Kèo '~MSK~')[/i]' %}
+  							{% set notify_system = 'Thủ môn @'~is_login()~' vừa chấp nhận kèo thi đấu của bạn. Nhưng rất tiếc cho bạn, anh ấy đã bắt được bóng! [i](Kèo '~turn.point~' điểm)[/i]' %}
+  							{% set player2_do = user.do + turn.point_result %}
+  <div class="menu">Chúc mừng bạn đã bắt được bóng theo hướng sút của đối thủ. Bạn nhận được <b style="color:green">{{turn.point_result}} điểm</b>.</div>
+  						{% else %}
+  							{% set save_result = 'thang' %}
+  							{% set notify_chat = 'Chúc mừng @'~turn.player1~' đã sút thủng lưới đối thủ! Xin chia buồn với thủ môn @'~is_login()~' đã bắt hụt trong kèo này! [i](Kèo '~MSK~')[/i]' %}
+    						{% set notify_system = 'Thủ môn @'~is_login()~' vừa chấp nhận kèo thi đấu của bạn. Chúc mừng, bạn đã sút thủng lưới của anh ấy! [i](Kèo '~turn.point~' điểm)[/i]' %}
+    						{% set player1_do = dplayer1.do + (turn.point_result)*2 %}
+  							{% set player2_do = user.do - turn.point %}
+  <div class="menu">Thật không may cho bạn, bạn đã không thể đỡ được bóng từ phía chân sút {{maunick(turn.player1)}}. Bạn đã mất toàn bộ số điểm đã cược: <b style="color:red">{{turn.point}} điểm</b>!</div>
+  						{% endif %}
+  						{% do insert_row_array_table('mail',{'sender_receiver':turn.player1~'_'~system_bot,'nick':system_bot,'content':notify_system,'time':'now'|date('U'),'view':'no'}) %}
+    					{% do update_row_table(table_name, 'player2', is_login(), 'id', turn.id) %}
+  						{% do update_row_table(table_name, 'result', save_result, 'id', turn.id) %}
+    					{% if player1_do %}{% do update_row_table('users', 'do', player1_do, 'nick', turn.player1) %}{% endif %}
+    					{% do update_row_table('users', 'do', player2_do, 'nick', is_login()) %}
+  {#
+  						{% do insert_row_array_table('chat', {'name':system_bot,'time':'now'|date('U'),'comment':notify_chat}) %}
+  #}
+            		{% endif %}
+        		{% endif %}
+  <form method="post">
+    {{_self.goal()}}
+    <div class="menu" style="text-align:center"><button type="submit"{{disabled}}>Bắt bóng</button></div>
+  </form>
+  			{% endif %}
+            {% if notice %}
+  <div class="rmenu" style="text-align:center"><b>Phát hiện nghi vấn hack!</b><br/>{{notice}}</div>
+  			{% endif %}
+  		{% else %}
+  <div class="rmenu">Kèo thi đấu không hợp lệ</div>
+  		{% endif %}
+{#=============================================================================#}
+  	{% else %}
+{#=============================================================================#}
+  <div class="phdr">Top cao thủ</div>
+  {% set array = [] %}
+  {% for u in select_table_data('users') %}
+  	{% set user_goal = query_select_table(table_name,'*',"WHERE result = 'thua' AND player1 != '"~u.nick~"' AND player2 = '"~u.nick~"'")|length|default(0) %}
+  	{% set user_catch = query_select_table(table_name,'*',"WHERE result = 'thang' AND player1 == '"~u.nick~"' AND player2 != '"~u.nick~"'")|length|default(0) %}
+  	{% if user_goal != '0' or user_catch != '0' %}
+    	{% set total_goal = user_goal + user_catch %}
+  		{% set array = array|merge({(u.nick):total_goal}) %}
+  	{% endif %}
+  {% endfor %}
+  {% set array =  array|arsort %}
+  {% for player,goal in array|slice(0,5) %}
+  	{% set dplayer = select_table_row_data('users', 'nick', player) %}
+      <div class="postprofile menu">
+        <div class="postprofileInner" style="margin-top:0;padding-top:0">
+          <div class="profileAvatar"><img src="{{getAvtUser(player)}}" width="38" height="38" alt="[AVT]" class="imgAvtUser" style="border:.5px solid #444"/></div>
+          <div class="profileInfo">
+            <div class="author"><a href="/user/{{player}}">{{maunick(player)}}</a></div>
+          <div>Kèo thắng: <b>{{goal}}</b></div>
+          </div>
+        </div>
+      </div>
+  {% endfor %}
+{#=============================================================================#}
+	{% endif %}
+{% else %}
+  {% set list_turn = query_select_table(table_name,'*',"WHERE result = 'chuabat' AND player1 != '"~is_login()~"'") %}
+  {% set total = list_turn|length %}
+  {% set per = '10' %}
+  {% set page_max = total//per %}
+  {% if total//per != total/per %}
+  	{% set page_max = total//per+1 %}
+  {% endif %}
+  {% set p = get_get('page') %}
+  {% if p matches '/[a-zA-z]|%/' or p<1 %}
+    {% set p = 1 %}
+  {% endif %}
+  {% if p > page_max %}
+    {% set p = page_max %}
+  {% endif %}
+  {% set st = p*per-per %}
+  <div class="phdr"><i class="fa fa-futbol-o" aria-hidden="true"></i> Danh sách kèo</div>
+  {% if total > '0' %}
+    {% set sql = "WHERE result = 'chuabat' AND player1 != '"~is_login()~"' ORDER BY time DESC LIMIT "~st~","~per %}
+  	{% for turn in query_select_table(table_name,'*',sql) %}
+  <div class="list1" style="border-bottom:1px solid #536162;padding:0">
+    <div class="postprofile">
+      <div class="postprofileInner" style="margin-top:0;padding-top:0">
+        <div class="profileAvatar"><img src="{{getAvtUser(turn.player1)}}" width="38" height="38" class="imgAvtUser" style="border:.5px solid #444"/></div>
+        <div class="profileInfo">
+          <div class="author"><a href="/user/{{turn.player1}}">{{maunick(turn.player1)}}</a> <i class="fa fa-angle-right" aria-hidden="true"></i> <a href="/play/penalty?act=catch&id={{turn.id}}">Kèo {{turn.point}} điểm</a>{% if turn.player1 == is_login() %} (không thể tự bắt){% endif %}</div>
+          <div><span style="color:#999;font-size:14px"><i class="fa fa-clock-o"></i> {{ago(turn.time)}}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  	{% endfor %}
+  {% else %}
+  <div class="menu">Chưa có người chơi nào muốn sút bóng vào khung thành của bạn.</div>
+  {% endif %}
+{% endif %}
+</div>
+
+{% macro goal(do) %} 
+  {% if do %}{% set disabled = ' disabled' %}{% endif %}
+  <style>.goal-left,.goal-right{width:50%;text-align:center}@media (max-width:660px){.goal-left{margin-left:20px;width:50%}.goal-right{margin-left:200px;margin-top:-40px}}</style>
+  <div class="menu" style="background-repeat:no-repeat;background-size:cover">
+    <div style="text-align:center"><img src="/gate.gif" style="width:100%;display:block;height:300px"></div>
+    <div style="margin-top:-300px;color:#fff">
+      <table style="margin-top:70px;width:100%">
+        <tr><td class="goal-left"><input type="radio" name="ball" value="trai"{{disabled}}><img src="/ball.png"></td><td class="goal-right"><input type="radio" name="ball" value="phai"{{disabled}}><img src="/ball.png"></td></tr>
+      </table>
+    </div>
+    <div style="margin-top:200px;color:#fff"></div>
+  </div>
+{% endmacro %}
+
+{% if url[0] == 'play_penalty' %}{{block('end')}}{% endif %}
+	{% else %}
+		{{redirect('/play/penalty')}}
+	{% endif %}
+{% else %}
+	{{redirect('/index')}}
+{% endif %}

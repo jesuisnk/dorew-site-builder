@@ -1,0 +1,546 @@
+{% block act_eat %}{#cho ăn#}
+	{% if user_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng chưa nở, chưa thể cho ăn!</div>
+	{% elseif (user_dragon['time_an'] + 43200) > 'now'|date('U') %}
+	<div class="rmenu" style="padding:6px;">Rồng của bạn chưa đói! Hãy quay lại sau nhé
+</div>
+	{% else %}
+	<div class="menu" style="padding:4px">
+      {% if request_method()|lower == 'post' %}
+      	{% if my[dragon_money] < 100 %}
+      		Bạn không có đủ 100 {{name_dragon_money}} để cho rồng ăn!
+      	{% else %}
+        	{% do update_row_array_table(table_name, {'exp':user_dragon.exp+30,'time_an':'now'|date('U')}, 'nick', is_login()) %}
+            {% do update_row_table('users', dragon_money, (my[dragon_money]|trim-100), 'nick', is_login()) %}
+          	{% if user_dragon['nvan'] < 100 %}
+          		{% do update_row_array_table(table_name, {'nvan':user_dragon.nvan+1}, 'nick', is_login()) %}                 
+            {% endif %}
+      		Cho rồng ăn thành công!
+      	{% endif %}
+      {% else %}{#xử lý xong#}
+      	{{name_dragon_money}} của bạn: <span style="color:red;font-weight:700">{{my[dragon_money]|number_format}}</span><hr/>
+		Cho rồng ăn bạn sẽ mất 100 {{name_dragon_money}} và rồng sẽ nhận được 30 Exp!<br/>
+		<form method="post">
+          <button type="submit" class="btn-primary">Cho ăn</button>
+		</form>
+      {% endif %}
+	</div>
+	{% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block act_play %}{#chơi với rồng#}
+	{% if user_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng chưa nở, không thể cho đi chơi!</div>
+	{% else %}
+		<div class="menu" style="padding:4px">
+		{% set drachoi = user_dragon['time_ball'] + 3600 - 'now'|date('U') %}
+		{% set timechoi = drachoi|date('H:i')~' ('~drachoi//60~' phút)' %}
+		{% if (user_dragon['time_ball'] + 3600) > 'now'|date('U') %}
+          Cậu chủ ơi! Em vừa mới chơi lúc nãy rồi, giờ em hơi mệt mỏi. Sau <b>{{timechoi}}</b> nữa em mới chơi tiếp được!
+		{% else %}
+        	{% do update_row_array_table(table_name, {'exp':user_dragon.exp+20,'time_ball':'now'|date('U')}, 'nick', is_login()) %}
+          	{% if user_dragon['nvchoi'] < 100 %}
+          		{% do update_row_array_table(table_name, {'nvchoi':user_dragon.nvchoi+1}, 'nick', is_login()) %}                 
+            {% endif %}
+      		Bạn đã cho chú rồng chơi đá bóng thành công
+			<br/><img src="https://dorew-site.github.io/assets/dragon/ball.png" alt="ball" />
+			<br/>Rồng nhận được 20 EXP, sau 1 giờ nữa mới có thể cho rồng chơi tiếp.
+		{% endif %}
+		</div>
+	{% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block act_shop %}{#danh mục cửa hàng#}
+	{% if user_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng chưa nở! Đợi trứng nở rồi hãy quay lại nhé!</div>
+	{% else %}
+	<div class="menu">
+      {{name_dragon_money}} của bạn: <span style="color:red;font-weight:700">{{my[dragon_money]|number_format}}</span><hr/>
+      <b>Bạn muốn mua gì?</b>
+      <br/><img src="https://dorew-site.github.io/assets/dragon/hp.png"/> <a href="?act=hp">Mua máu (100 {{name_dragon_money}}/bình/+100 HP)</a>
+      <br/><img src="https://dorew-site.github.io/assets/dragon/mp.png"/> <a href="?act=mp">Mua mana (100 {{name_dragon_money}}/bình/+50 MP)</a>
+      <br/><img src="https://dorew-site.github.io/assets/dragon/hp.png" alt="" /> <a href="?act=allhp">Hồi phục đầy máu (5000 {{name_dragon_money}})</a>
+      <br/><img src="https://dorew-site.github.io/assets/dragon/mp.png"/> <a href="?act=allmp">Hồi phục đầy mana (5000 {{name_dragon_money}})</a>
+      <br/><img src="https://dorew-site.github.io/assets/farm/compound/liquid/clone.png" style="width:20px;height:20px"/> <a href="?act=all">Hồi phục đầy máu và mana (1 dung dịch Hào quang hắc ám)</a>
+      <br/><img src="https://dorew-site.github.io/assets/rank/War/Attack.png" style="width:20px;height:20px"/> <a href="?act=turn">Mở giới hạn lượt tấn công</a>
+      <br/><br/>
+      <b>Khiên phòng vệ</b>
+      <br/><img src="https://dorew-site.github.io/assets/rank/Shield/Guard_Shield.png" style="width:20px;height:20px"/> <a href="?act=shield&shield=1">Khiên phòng vệ cấp 1: <span style="color:red">2 giờ</span> (1 bột ma thuật + 20 xu)</a>
+      <br/><img src="https://dorew-site.github.io/assets/rank/Shield/Wooden_Shield.png" style="width:20px;height:20px"/> <a href="?act=shield&shield=2">Khiên gỗ: <span style="color:red">1 ngày</span> (1 dung dịch Ma dược thần bí + 50 xu)</a>
+      <br/><img src="https://dorew-site.github.io/assets/rank/Shield/Silver_Shield.png" style="width:20px;height:20px"/> <a href="?act=shield&shield=3">Khiên bạc: <span style="color:red">2 ngày</span> (2 dung dịch Ma dược thần bí + 100 xu)</a>
+      <br/><img src="https://dorew-site.github.io/assets/rank/Shield/Gold_Shield.png" style="width:20px;height:20px"/> <a href="?act=shield&shield=4">Khiên vàng: <span style="color:red">7 ngày</span> (1 dung dịch Hào quang hắc ám + 50 xu)</a>
+	</div>
+	{% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block act_hp %}{#mua máu#}
+	<div class="menu">
+	{% if user_dragon['hp'] >= dra[2] %}
+      Rồng của bạn đang đầy máu, không cần nạp thêm!
+    {% else %}
+        {% if request_method()|lower == 'post' %}
+            <div style="color:red;padding:6px">
+			{% set method = get_post('method') %}
+            {% if method == dragon_money %}
+                {% if my[dragon_money] < 100 %}
+      				Bạn không có đủ 100 {{name_dragon_money}}!
+      			{% else %}
+    				{% if (user_dragon['hp'] + 100) > dra[2] %}
+      					{% do update_row_table(table_name, 'hp', dra[2], 'nick', is_login()) %}
+      				{% else %}
+      					{% do update_row_table(table_name, 'hp', (user_dragon['hp'] + 100), 'nick', is_login()) %}
+      				{% endif %}
+      				{% do update_row_table('users', dragon_money, (my[dragon_money]|trim-100), 'nick', is_login()) %}
+      				Mua thành công! Rồng của bạn được cộng 100 HP.
+      			{% endif %}
+      		{% elseif method == 'compound' %}
+                {% if my_compound['longvu_liquid'] < 1 %}
+                	Bạn phải có ít nhất 1 dung dịch <b>Ma dược thiên thần</b> để hoá phép cho Rồng!
+      			{% else %}
+    				{% if (user_dragon['hp'] + 100) > dra[2] %}
+      					{% do update_row_table(table_name, 'hp', dra[2], 'nick', is_login()) %}
+      				{% else %}
+      					{% do update_row_table(table_name, 'hp', (user_dragon['hp'] + 100), 'nick', is_login()) %}
+      				{% endif %}
+      				{% do update_row_table('user_maduoc', 'longvu_liquid', (my_compound['longvu_liquid']|trim-1), 'nick', is_login()) %}
+      				Hoá phép thành công! Rồng của bạn được cộng 100 HP.
+      			{% endif %}
+            {% else %}
+				Phương thức hoá phép không hợp lệ
+            {% endif %}
+			</div>
+        {% else %}
+			{% set liquid_method = {(dragon_money):name_dragon_money,'compound':'Dung dịch Ma dược thiên thần'} %}
+			<div style="padding:6px">
+              <b>Mời bạn chọn phương pháp hoá phép:</b>
+              <br/>
+              <form method="post">
+                {% for method,method_name in liquid_method %}
+                <input type="radio" name="method" value="{{method}}"/> Dùng {{method_name}}<br/>
+                {% endfor %}
+                <button type="submit" class="btn-sm btn-warning">Hoá phép</button>
+              </form>
+			</div>
+        {% endif %}
+    {% endif %}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_mp %}{#mua mana#}
+	<div class="menu">
+	{% if user_dragon['mp'] >= dra[3] %}
+      Rồng của bạn đang đầy mana, không cần nạp thêm!
+    {% else %}
+        {% if request_method()|lower == 'post' %}
+            <div style="color:red;padding:6px">
+			{% set method = get_post('method') %}
+            {% if method == dragon_money %}
+                {% if my[dragon_money] < 100 %}
+      				Bạn không có đủ 100 {{name_dragon_money}}!
+      			{% else %}
+    				{% if (user_dragon['mp'] + 100) > dra[3] %}
+      					{% do update_row_table(table_name, 'mp', dra[3], 'nick', is_login()) %}
+      				{% else %}
+      					{% do update_row_table(table_name, 'mp', (user_dragon['mp'] + 100), 'nick', is_login()) %}
+      				{% endif %}
+      				{% do update_row_table('users', dragon_money, (my[dragon_money]|trim-100), 'nick', is_login()) %}
+      				Mua thành công! Rồng của bạn được cộng 100 MP.
+      			{% endif %}
+      		{% elseif method == 'compound' %}
+                {% if my_compound['tiaset_liquid'] < 1 %}
+                	Bạn phải có ít nhất 1 dung dịch <b>Ma dược địa ngục</b> để hoá phép cho Rồng!
+      			{% else %}
+    				{% if (user_dragon['mp'] + 100) > dra[3] %}
+      					{% do update_row_table(table_name, 'mp', dra[3], 'nick', is_login()) %}
+      				{% else %}
+      					{% do update_row_table(table_name, 'mp', (user_dragon['mp'] + 100), 'nick', is_login()) %}
+      				{% endif %}
+      				{% do update_row_table('user_maduoc', 'tiaset_liquid', (my_compound['tiaset_liquid']|trim-1), 'nick', is_login()) %}
+      				Hoá phép thành công! Rồng của bạn được cộng 100 MP.
+      			{% endif %}
+            {% else %}
+				Phương thức hoá phép không hợp lệ
+            {% endif %}
+			</div>
+        {% else %}
+			{% set liquid_method = {(dragon_money):name_dragon_money,'compound':'Dung dịch Ma dược địa ngục'} %}
+			<div style="padding:6px">
+              <b>Mời bạn chọn phương pháp hoá phép:</b>
+              <br/>
+              <form method="post">
+                {% for method,method_name in liquid_method %}
+                <input type="radio" name="method" value="{{method}}"/> Dùng {{method_name}}<br/>
+                {% endfor %}
+                <button type="submit" class="btn-sm btn-warning">Hoá phép</button>
+              </form>
+			</div>
+        {% endif %}
+    {% endif %}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_allhp %}{#hồi phục đầy máu#}
+	<div class="menu" style="padding:6px">
+	{% if user_dragon['hp'] >= dra[2] %}
+      Rồng của bạn đang đầy máu, không cần nạp thêm!
+	{% elseif my[dragon_money] < 5000 %}
+      Bạn không có đủ 5000 {{name_dragon_money}}!
+    {% else %}
+        {% do update_row_table(table_name, 'hp', dra[2], 'nick', is_login()) %}
+      	{% do update_row_table('users', dragon_money, (my[dragon_money]|trim-5000), 'nick', is_login()) %}
+      Mua thành công! Rồng của bạn đã được nạp đầy HP.
+    {% endif %}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_allmp %}{#hồi phục đầy mana#}
+	<div class="menu" style="padding:6px">
+	{% if user_dragon['mp'] >= dra[3] %}
+      Rồng của bạn đang đầy mana, không cần nạp thêm!
+	{% elseif my[dragon_money] < 5000 %}
+      Bạn không có đủ 5000 {{name_dragon_money}}!
+    {% else %}
+        {% do update_row_table(table_name, 'mp', dra[3], 'nick', is_login()) %}
+      	{% do update_row_table('users', dragon_money, (my[dragon_money]|trim-5000), 'nick', is_login()) %}
+      Mua thành công! Rồng của bạn đã được nạp đầy MP.
+    {% endif %}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_all %}{#hồi phục đầy máu + mana#}
+	<div class="menu" style="padding:6px">
+    {% if user_dragon['hp'] >= dra[2] and user_dragon['mp'] >= dra[3] %}
+      Rồng của bạn đang đầy sức chiến. Không cần nạp thêm!
+	{% elseif my_compound['haoquang_liquid'] < 1 %}
+      Bạn phải có ít nhất 1 dung dịch Hào quang hắc ám để sử dụng chức năng này!
+    {% else %}
+        {% do update_row_array_table(table_name, {'hp':dra[2],'mp':dra[3]}, 'nick', is_login()) %}
+      	{% do update_row_table('user_maduoc', 'haoquang_liquid', (my_compound['haoquang_liquid']|trim-1), 'nick', is_login()) %}
+      Mua thành công! Rồng của bạn đã được nạp đầy HP và MP.
+    {% endif %}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_turn %}{#mua lượt tấn công#}
+    {% if request_method()|lower == 'post' %}
+      {% if my_compound['thongthao'] > 0 %}
+      <div class="gmenu">Trao dổi thành công! Rồng của bạn được tăng thêm 1 lượt tấn công!</div>
+      	{% do update_row_table(table_name, 'atk', (user_dragon['atk'] + 1), 'nick', is_login()) %}
+      	{% do update_row_table('user_maduoc', 'thongthao', (my_compound['thongthao'] - 1), 'nick', is_login()) %}
+      {% endif %}
+    {% endif %}
+	<div class="menu" style="padding:6px">
+      <div style="font-weight:700">Rồng của bạn đang có: <span style="color:red">{{user_dragon['atk']|number_format}}</span> lượt tấn công.</div>
+      <div style="font-weight:700">Huy hiệu thông thạo: <span style="color:red">{{my_compound['thongthao']|number_format}}</span></div>
+      <p>
+        Để có thể mở giới hạn lượt tấn công rồng, bạn cần phải có ít nhất <span style="color:green;font-weight:700">1 Huy hiệu thông thạo</span>. 
+        {% if my_compound['thongthao'] > 0 %}
+        Bạn có muốn thực hiện giao dịch này không?
+        <br/><form method="post"><button type="submit" class="btn-sm btn-warning">Đồng ý</button></form>
+      	{% endif %}
+      </p>
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_shield %}{#khiên phòng vệ#}
+	<div class="menu" style="padding:6px">
+	{% if shield == 1 %}
+      	{% set shield_icon = 'Guard' %}
+    	{% set shield_name = 'Khiên phòng vệ cấp 1' %}
+      	{% set shield_time = 60*60*2 %}
+        {% set xu, botmathuat, phale_liquid, haoquang_liquid = 20, 1, 0, 0 %}
+    {% elseif shield == 2 %}
+      	{% set shield_icon = 'Wooden' %}
+    	{% set shield_name = 'Khiên gỗ' %}
+      	{% set shield_time = 60*60*24 %}
+        {% set xu, botmathuat, phale_liquid, haoquang_liquid = 50, 0, 1, 0 %}
+	{% elseif shield == 3 %}
+      	{% set shield_icon = 'Silver' %}
+    	{% set shield_name = 'Khiên bạc' %}
+      	{% set shield_time = 60*60*24*2 %}
+        {% set xu, botmathuat, phale_liquid, haoquang_liquid = 100, 0, 2, 0 %}
+    {% else %}
+      	{% set shield_icon = 'Gold' %}
+    	{% set shield_name = 'Khiên vàng' %}
+      	{% set shield_time = 60*60*24*7 %}
+        {% set xu, botmathuat, phale_liquid, haoquang_liquid = 50, 0, 0, 1 %}
+    {% endif %}
+      {% set list_ingredient = {'xu':xu,'botmathuat':botmathuat,'phale_liquid':phale_liquid,'haoquang_liquid':haoquang_liquid} %}
+      <b>{{shield_name}}</b>
+      <br/><img src="https://dorew-site.github.io/assets/rank/Shield/{{shield_icon}}_Shield.png" style="width:50px;height:50px"/>
+      <p style="border:1px dotted orange;border-radius:10px;padding:10px">Khiên phòng vệ ngăn chặn người chơi khác tấn công. Khi sử dụng khiên, rồng của bạn sẽ không bị ảnh hưởng khi tìm kiếm mục tiêu trong đấu trường hoặc Trả thù, nhưng chúng sẽ bi rút ngắn thời gian nếu rồng bắt đầu tấn công.</p>
+      {#<form method="post">
+        {% for ingredient_name,ingredient in list_ingredient %}
+        {{ingredient_name}}: <b>{{ingredient}}</b><br/>
+        {% endfor %}
+      </form>#}
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_delete %}{#bán rồng#}
+    {% if request_method()|lower == 'post' %}
+		{% do delete_row_table(table_name, 'nick', is_login()) %}
+        {% do update_row_table('users', 'xu', (my['xu']|trim+user_dragon['level']*10), 'nick', is_login()) %}
+    {% endif %}
+	<div class="menu" style="padding:4px">
+      <b>Cảnh báo:</b> Chức năng này dùng để xoá dữ liệu mà con rồng bạn đang nuôi và bạn có thể mua con khác. Đồng nghĩa với việc bạn phải bắt đầu lại từ đầu!
+      <br/>Bạn sẽ nhận được <b>{{user_dragon['level']*10}} xu</b> sau khi bán rồng, bạn thực sự muốn thực hiện hành động này chứ?<br/>
+      <form method="post">
+        <button type="submit" class="btn-warning">Bán luôn</button>
+      </form>
+    </div>
+{% endblock %}
+{#=============================================================================#}
+{% block act_kill %}{#đấu trường#}
+    {% from '_users' import maunick %}
+    {% from '_functions' import paging %}
+    {% from 'play_dragon' import rank %}
+	{% if user_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng của bạn chưa nở! Khi nào trứng nở mới có thể chiến đấu!</div>
+	{% else %}
+    <div class="notice" style="border-radius:0;margin:0;text-align:left"><span style="color:purple;font-size:20;font-weight:bold">Trùm Boss</span>: [<a href="/play/dragon/{{system_bot}}?mod=dautruong"><span style="color:red;">Khiêu chiến</span></a>]  [<a href="/play/dragon/{{system_bot}}">Thông tin</a>]</div>
+      <div class="topmenu">{{(get_get('display') != 'hero' ? '<span style="font-weight:700">Top lực chiến</span>' : '<a href="?act=kill">Top lực chiến</a>')|raw}} | {{(get_get('display') == 'hero' ? '<span style="font-weight:700">Tất cả</span>' : '<a href="?act=kill&display=hero">Tất cả</a>')|raw}}</div>
+    {% if get_get('display') == 'hero' %}
+      	{% set query = query_select_table(table_name,'*','WHERE `nick` != "'~system_bot~'"') %}
+    {% else %}
+    	{% set query = query_select_table(table_name,'*','WHERE `nick` != "'~system_bot~'" AND `rank` >= 1') %}
+    {% endif %}
+    {% set total = query|length %}
+    {% if total <= 0 %}
+    	<div class="menu">Danh sách trống</div>
+    {% else %}
+  		{% set per = '10' %}
+  		{% set page_max = total//per %}
+  		{% if total//per != total/per %}
+    		{% set page_max = total//per+1 %}
+  		{% endif %}
+  		{% set p = get_get('page')|default(1) %}
+  		{% if p matches '/[a-zA-z]|%/' or p < 1 %}{% set p = 1 %}{% endif %}
+  		{% if p > page_max %}{% set p = page_max %}{% endif %}
+  		{% set st=p*per-per %}
+    	{% if get_get('display') == 'hero' %}
+      		{% set data_paging = query_select_table(table_name,'*','WHERE `nick` != "'~system_bot~'" ORDER BY id ASC LIMIT '~st~','~per) %}
+    	{% else %}
+    		{% set data_paging = query_select_table(table_name,'*','WHERE `nick` != "'~system_bot~'" AND `rank` >= 1 ORDER BY rank DESC LIMIT '~st~','~per) %}
+    	{% endif %}
+      	{% for master in data_paging %}
+      		{% set dmaster = select_table_row_data('users', 'nick', master.nick) %}
+    <div class="list1">
+      		{% if master.nick == my.nick %}
+      {{rank(table_name,master.nick,'rank_icon')}} <a href="/user">{{maunick(master.nick)}}</a> (<b>{{master.name}}</b>): [<a href="/play/dragon">Thông tin</a>]
+      		{% else %}
+      {{rank(table_name,master.nick,'rank_icon')}} <a href="/user/{{master.nick}}">{{maunick(master.nick)}}</a> (<b>{{master.name}}</b>): [<a href="/play/dragon/{{master.nick}}?mod=dautruong" style="color:red">Khiêu chiến</a>] [<a href="/play/dragon/{{master.nick}}">Thông tin</a>]
+      		{% endif %}
+    </div>
+      	{% endfor %}
+        {% if get_get('display') == 'hero' %}
+      		{{paging('?act=kill&display=hero&page=',p,page_max)|replace({'/?':'?'})|raw}}
+    	{% else %}
+    		{{paging('?act=kill&page=',p,page_max)|replace({'/?':'?'})|raw}}
+    	{% endif %}
+    {% endif %}
+	<div class="gmenu">Tổng số: <b>{{total}}</b></div>
+	{% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block act_nhiemvu %}{#nhiệm vụ#}
+	{% set gift = get_get('gift') %}
+    {% if gift in 1..3 %}
+      <div class="menu">
+      	{% if gift == '1' %}
+      		{% set nhiemvu = 'nvan' %}
+      		{% set amount = 100 %}
+      		{% set nhiemvu_name = 'Cho rồng ăn' %}
+        	{% set npc = 'Healer' %}
+        	{% set reward = 2000 %}
+      	{% elseif gift == '2' %}
+      		{% set nhiemvu = 'nvchoi' %}
+      		{% set amount = 100 %}
+      		{% set nhiemvu_name = 'Cho rồng chơi' %}
+        	{% set npc = 'Dragon' %}
+        	{% set reward = 2000 %}
+      	{% else %}
+      		{% set nhiemvu = 'nvkill' %}
+      		{% set amount = 500 %}
+      		{% set nhiemvu_name = 'Cho rồng đi chiến đấu' %}
+        	{% set npc = 'PEKKA' %}
+        	{% set reward = 4500 %}
+      	{% endif %}
+    	{% if request_method()|lower == 'post' %}
+      		{% if my_dragon[nhiemvu] >= amount %}
+        		{% if gift == 3 %}
+        			{% do update_row_table(table_name, 'reward', (my_dragon['reward']+1), 'nick', is_login()) %}
+        		{% endif %}
+        		{% do update_row_table(table_name, nhiemvu, 0, 'nick', is_login()) %}
+      			{% do update_row_table('users', dragon_money, (my[dragon_money]|trim+reward), 'nick', is_login()) %}
+        <div id="reward">
+          <b>Xin chúc mừng bạn đã nhận thưởng thành công!</b>
+          <br/>Bạn đã được cộng {{reward|number_format}} {{name_dragon_money}} vào tài khoản, nhiệm vụ đã được reset, bạn có thể thực hiện tiếp!
+        </div>
+      		{% endif %}
+        	{{file_header('Refresh: 3; url=?act=nhiemvu&gift='~gift)}}
+      	{% else %}
+        <div id="info">
+          <b>Nhiệm vụ {{nhiemvu_name}}</b>
+          <div id="npc"><img src="https://dorew-site.github.io/assets/npc/{{npc}}.png" alt="NPC"/></div>
+          Phần thưởng: <b>{{reward|number_format}}</b> {{name_dragon_money}}
+          <br/>Tiến độ: <b>{{my_dragon[nhiemvu]}}</b>/{{amount}}
+          <br/>Tình trạng: <b>{{my_dragon[nhiemvu] < amount ? 'Chưa hoàn thành' : 'Đã hoàn thành'}}</b>
+          <br/>{{(my_dragon[nhiemvu] < amount ? 'Hãy quay lại khi đạt yêu cầu nhé!' : '<form method="post"><button type="submit" class="btn-primary">Nhận thưởng</button></form>')|raw}}
+        </div>
+      	{% endif %}
+      </div>
+    {% else %}
+	<div class="list1"><b>Nhiệm vụ 1:</b> Cho rồng ăn 100 lần. Phần thưởng nhận được là 2000 {{name_dragon_money}}!<br/>{{(my_dragon['nvan'] < 100 ? '<b>Chưa hoàn thành</b><br/>Tiến độ: '~my_dragon['nvan']~'/100' : '<span style="color:red;font-weight:700">Nhiệm vụ hoàn thành</span> [<a href="?act=nhiemvu&gift=1">Nhận thưởng</a>]')|raw}}</div>
+	<div class="list1"><b>Nhiệm vụ 2:</b> Cho rồng chơi 100 lần. Phần thưởng nhận được là 2000 {{name_dragon_money}}!<br/>{{(my_dragon['nvchoi'] < 100 ? '<b>Chưa hoàn thành</b><br/>Tiến độ: '~my_dragon['nvchoi']~'/100' : '<span style="color:red;font-weight:700">Nhiệm vụ hoàn thành</span> [<a href="?act=nhiemvu&gift=2">Nhận thưởng</a>]')|raw}}</div>
+	<div class="list1"><b>Nhiệm vụ 3:</b> Cho rồng đi đánh nhau 500 lần. Phần thưởng nhận được là 4500 {{name_dragon_money}}!<br/>{{(my_dragon['nvkill'] < 500 ? '<b>Chưa hoàn thành</b><br/>Tiến độ: '~my_dragon['nvkill']~'/500' : '<span style="color:red;font-weight:700">Nhiệm vụ hoàn thành</span> [<a href="?act=nhiemvu&gift=3">Nhận thưởng</a>]')|raw}}</div>
+	{% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block mod_dautruong %}{#tấn công#}
+    {% from '_users' import maunick %}
+    {% from 'play_dragon' import rank,tienhoa %}
+    {% from '_bbcode' import bbcode %}
+	{% if my_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng của bạn chưa nở! Khi nào trứng nở mới có thể chiến đấu!</div>
+	{% elseif user_dragon['time'] > ('now'|date('U') - 43200) %}
+	<div class="rmenu" style="padding:4px;">Trứng rồng của đối thủ chưa nở! Khi nào trứng nở mới có thể khiêu chiến!</div>
+	{% elseif my_dragon['hp'] <= 0 or my_dragon['mp'] <= 0 %}
+	<div class="rmenu" style="padding:4px;">Rồng của bạn không còn Máu hoặc Mana. Hãy nạp thêm để có thể tiếp tục chiến đấu!</div>
+	{% elseif user_dragon['hp'] <= 0 %}
+	<div class="rmenu" style="padding:4px;">Đối thủ của bạn đã hết máu. Nên không thể chiến tiếp!</div>
+	{% elseif my_dragon['atk'] <= 0 and user.nick != system_bot  %}
+	<div class="rmenu" style="padding:4px;">Số lượt tấn công của bạn đã hết. Hãy <a href="?act=turn">mở giới hạn</a> để tiếp tục chiến đấu!</div>
+    {% else %}
+      	{% set hit = get_post('hit') %}
+    	{% if request_method()|lower == 'post' %}
+      		{% set counterattack = random(['phản damge','dùng chiêu','đánh trả','tung chưởng','dùng tabala đánh trả','xuất kill']) %}
+      		{% set my_hp = random(5..20) %}
+      		{% set my_mp = random(5..15) %}
+      		{% set user_hp = random(5..10) %}
+      		{% set get_exp = random(5..10) %}
+      		{% set get_rank = random(8..20) %}
+            {% set notice = 'Bạn đã tấn công rồng của @'~user.nick~' , đối thủ mất [b]'~user_hp~'[/b] máu. Rồng của bạn mất [b]'~my_mp~'[/b] Mana và được cộng [b]'~get_exp~'[/b] Exp!\r\n Rồng của @'~user.nick~' '~counterattack~' làm rồng của bạn mất [b]'~my_hp~'[/b] máu!' %}
+      		{% if user.nick != system_bot %}
+      			{% set notice = notice~'\r\n Điểm xếp hạng của bạn: [b]'~my_dragon['rank']~'[/b] [color=red]+'~get_rank~'[/color]' %}
+      		{% endif %}
+      		{% if my_dragon['nvkill'] < 500 %}
+            	{% do update_row_table(table_name, 'nvkill', (my_dragon['nvkill']+1), 'nick', my.nick) %}
+            {% endif %}
+            {#=====TIỀM LỰC CHIẾN ĐẤU=====#}
+            {#bản thân#}
+			{% if (my_dragon['hp'] - my_hp) < 0 %}
+            	{% do update_row_table(table_name, 'hp', 0, 'nick', my.nick) %}
+      		{% else %}
+            	{% do update_row_table(table_name, 'hp', (my_dragon['hp'] - my_hp), 'nick', my.nick) %}
+      		{% endif %}
+			{% if (my_dragon['mp'] - my_mp) < 0 %}
+            	{% do update_row_table(table_name, 'mp', 0, 'nick', my.nick) %}
+      		{% else %}
+            	{% do update_row_table(table_name, 'mp', (my_dragon['mp'] - my_mp), 'nick', my.nick) %}
+      		{% endif %}
+			{% do update_row_table(table_name, 'exp', (my_dragon['exp'] + get_exp), 'nick', my.nick) %}
+            {% if user.nick != system_bot %}
+				{% do update_row_table(table_name, 'rank', (my_dragon['rank'] + get_rank), 'nick', my.nick) %}
+                {% if my_dragon['atk'] == 1 %}
+					{% do update_row_table(table_name, 'atk', 0, 'nick', my.nick) %}
+                {% else %}
+					{% do update_row_table(table_name, 'atk', (my_dragon['atk'] - 1), 'nick', my.nick) %}
+                {% endif %}
+            {% endif %}
+      		{#đối thủ#}
+			{% if (user_dragon['hp'] - user_hp) < 0 %}
+            	{% do update_row_table(table_name, 'hp', 0, 'nick', user.nick) %}
+      		{% else %}
+            	{% do update_row_table(table_name, 'hp', (user_dragon['hp'] - user_hp), 'nick', user.nick) %}
+      		{% endif %}
+			{% if (user_dragon['rank'] - get_rank) < 0 %}
+            	{% do update_row_table(table_name, 'rank', 0, 'nick', user.nick) %}
+      		{% elseif user_dragon['rank'] >= 199 %}
+            	{% do update_row_table(table_name, 'rank', (user_dragon['rank'] - get_rank), 'nick', user.nick) %}
+      		{% endif %}
+            {#===END TIỀM LỰC CHIẾN ĐẤU===#}
+      		{#=====THÔNG BÁO ĐẾN ĐỐI THỦ=====#}
+      		{% if user.nick != system_bot and get_row_count('mail',{'operator':'=','sender_receiver':user.nick~'_'~system_bot,'type':'dragon'}) == 0 %}
+				{% do insert_row_array_table('mail',{'sender_receiver':user.nick~'_'~system_bot,'nick':my.nick,'content':'[b]'~html_decode(my_dragon['name'])~'[/b] ( Rồng của @'~my.nick~' ) đã tấn công rồng của bạn. Khiến rồng của bạn bị thương! [url=/play/dragon]Xem chi tiết >>[/url]','time':'now'|date('U'),'view':'no','type':'dragon'}) %}
+      		{% endif %}
+      		{#===END THÔNG BÁO ĐẾN ĐỐI THỦ===#}
+		{% endif %}
+      <div class="menu">
+      	{% if notice %}
+      		<p>{{bbcode(notice)}}</p>
+      	{% else %}
+        <table style="width:100%;cellpadding:0;cellspacing:0" border="1">
+          <tr>
+            <th style="width:50%;text-align:center"><a href="/user/{{my.nick}}">{{maunick(my.nick)}}</a></th>
+            <th style="width:50%;text-align:center"><a href="/user/{{user.nick}}">{{maunick(user.nick)}}</a></th>
+          </tr>
+          <tr>
+            <td style="width:50%">
+              <span style="color:blue;font-weight:700">Level: {{my_dragon['level']}}</span>
+              <br/>Tiến hoá: <b>{{tienhoa(table_name,my.nick)}}</b>
+              <br/>EXP: <b>{{my_dragon['exp']}}</b>/{{my_dra[0]}}
+              <br/>HP: <b>{{my_dragon['hp']}}</b>/{{my_dra[2]}}
+              <br/>MP: <b>{{my_dragon['mp']}}</b>/{{my_dra[3]}}
+              <br/>Hạng: {{rank(table_name,my.nick,'league_icon')}} {{rank(table_name,my.nick,'rank')}} [{{my_dragon['rank']}}]
+            </td>
+            <td style="width:50%">
+              <span style="color:blue;font-weight:700">Level: {{user_dragon['level']}}</span>
+              <br/>Tiến hoá: <b>{{tienhoa(table_name,user.nick)}}</b>
+              <br/>EXP: <b>{{user_dragon['exp']}}</b>/{{dra[0]}}
+              <br/>HP: <b>{{user_dragon['hp']}}</b>/{{dra[2]}}
+              <br/>MP: <b>{{user_dragon['mp']}}</b>/{{dra[3]}}
+              <br/>Hạng: {{rank(table_name,user.nick,'league_icon')}} {{rank(table_name,user.nick,'rank')}} [{{user_dragon['rank']}}]
+            </td>
+          </tr>
+        </table>
+      	{% endif %}
+        <br/>
+        <div style="text-align:center">
+          <table style="width:100%;cellpadding:0;cellspacing:0">
+            <td style="width:40%;text-align:center">
+              <div style="padding:4px;font-size:15px;border:1px dotted darkviolet;border-radius:5px;max-width:{{html_decode(my_dragon['name'])|length*15}}px;margin:auto;margin-bottom:4px"><span style="color:red;font-weight:700">{{html_decode(my_dragon['name'])}}</span></div>
+              <img src="https://dorew-site.github.io/assets/dragon/{{my_dragon['dragon']}}/{{tienhoa(table_name,my.nick)}}.gif" alt="Dragon"/>
+            </td>
+            <td style="width:20%;text-align:center">
+              <span style="color:red;font-size:40px">VS</span>
+            </td>
+            <td style="width:40%;text-align:center">
+              <div style="padding:4px;font-size:15px;border:1px dotted darkviolet;border-radius:5px;max-width:{{html_decode(user_dragon['name'])|length*15}}px;margin:auto;margin-bottom:4px"><span style="color:red;font-weight:700">{{html_decode(user_dragon['name'])}}</span></div>
+              <img src="https://dorew-site.github.io/assets/dragon/{{user_dragon['dragon']}}/{{tienhoa(table_name,user.nick)}}.gif" alt="Dragon"/>
+            </td>
+          </table>
+          <br/>
+          {% if user_dragon['shield'] > 'now'|date('U') %}
+          	Đối thủ đang được bảo vệ bởi khiên. Bạn không thể tấn công!
+          {% else %}
+          <form method="post">
+            <input type="submit" name="hit" value="{{hit ? 'Đánh tiếp' : 'Tấn công'}}" class="btn-warning" />
+          </form>
+          {% endif %}
+        </div>
+        <br/>
+      </div>
+    {% endif %}
+{% endblock %}
+{#=============================================================================#}
+{% block act_info %}
+  <div class="menu">
+    - Mùa giải có <b>8 giải đấu</b> tương ứng với <b>24 bậc hạng</b>. Các giải đấu, bao gồm: <span style="color:#f82e00">Bronze</span>, <span style="color:#f82e00">Silver</span>, <span style="color:#f82e00">Gold</span>, <span style="color:#f82e00">Crystal</span>, <span style="color:#f82e00">Master</span>, <span style="color:#f82e00">Champion</span>, <span style="color:#f82e00">Titan</span> và <span style="color:#f82e00">Legend</span>.<br/>
+    - Một mùa giải kéo dài tối đa từ 3 - 6 tháng.<br/>
+    - Trong suốt mùa giải, thành viên giữ vị trí đầu tiên trong bảng xếp hạng sẽ được tặng <b>icon <img src="https://dorew-site.github.io/assets/rank/War/Top/Champion.png" alt="Dragon" style="width:15px;height:15px"/> Champion</b> trước tên nick.<br/>
+    - Cuối mùa giải, thành viên có <b>tối thiểu từ 500 lượt đánh thắng </b>sẽ được thưởng cuối mùa, trong đó thành viên giữ vị trí TOP 1 sẽ được nhận ưu đãi.<br/>
+    <b>Cụ thể:</b> (Đơn vị: Tiềm lực)<br/>
+    <b>+) Không xếp hạng:</b> 2k5<br/>
+    <b>+) Bronze:</b> 5k - 15k<br/>
+    <b>+) Silver:</b> 20k - 30k<br/>
+    <b>+) Gold:</b> 35k - 45k<br/>
+    <b>+) Crystal:</b> 50k - 60k<br/>
+    <b>+) Master:</b> 65k -75k<br/>
+    <b>+) Champion:</b> 80k - 90k<br/>
+    <b>+) Titan:</b> 94k - 102k<br/>
+    <b>+) Legend:</b> 106k<br/>
+    <span style="color:green;font-weight:700">+) Hạng nhất: Thưởng thêm 15k</span><br/>
+    - Sau khi kết thúc mùa giải, thông tin điểm hạng sẽ bị reset và bộ đếm được tính lại từ đầu.
+  </div>
+{% endblock %}

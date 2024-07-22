@@ -1,0 +1,167 @@
+{% use '_blog' %}
+{% use '_layout' %}
+
+{% set url = get_uri_segments() %}
+{% from '_functions' import ago,rwurl,paging,description %}
+{% from '_users' import maunick %}
+{% from '_bbcode' import bbcode %}
+
+{% set title = 'Tin tức' %}
+{{block('head')}}
+{% set user = select_table_row_data('users','nick',is_login()) %}
+<ul class="breadcrumb" style="z-index:0">
+  <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/"><span itemprop="title"><i class="fa fa-home" aria-hidden="true"></i></span></a></span></li>
+  <li><span itemscope itemtype="http://data-vocabulary.org/Breadcrumb" itemscope="itemscope"><a itemprop="url" href="/news/"><span itemprop="title">Tin tức</span></a></span></li>
+</ul>
+{% set w3_main4px_content %}
+{% if is_login() and user.level >= '120' and url[1] in ['add','edit','delete'] %}
+{% macro form_news(submit, title, content) %}
+	{% use '_layout' %}
+  <form method="post" name="form">
+  <div class="menu">
+    <b><i class="fa fa-gg" aria-hidden="true"></i> Tiêu đề:</b>
+    <p><input class="w3-input w3-border" type="text" name="title" value="{% if title %}{{title}}{% endif %}" maxlength="300" style="height:100%; width:100%"></p>
+    {% if submit == 'add' %}
+    <p><input type="checkbox" name="new_topic" value="agree"/> Đăng bài viết</p>
+    {% endif %}
+  </div>
+  <div class="menu">
+    <b><i class="fa fa-newspaper-o" aria-hidden="true"></i> Nội dung:</b>
+    <p>
+      {{block('toolbar')}}
+      <textarea name="msg" rows="10">{% if content %}{{html_decode(content)}}{% endif %}</textarea></div>
+    </p>
+  </div>
+  <div class="menu w3-center">
+    <button type="submit" class="btn btn-primary btn-block">{% if submit == 'add' %}Đăng tin tức{% else %}Lưu lại{% endif %}</button>
+  </div>
+  </form>
+{% endmacro %}
+{#============================================================================#}
+{% if get_get('id') %}
+	{% set news = select_table_row_data('news','id',get_get('id')) %}
+{% endif %}
+{% if url[1] == 'add' %}
+{#=====ĐĂNG TẢI TIN TỨC=====#}
+	{% if request_method()|lower == 'post' %}
+		{% set save_title = get_post('title') %}
+		{% set save_content = get_post('msg') %}
+		{% set new_topic = get_post('new_topic') %}
+		{% if save_title|length not in 3..300 and rwurl(save_title) not in ['',null] %}
+			{% set notice = 'Độ dài tiêu đề không hợp lệ (Min. 3 - Max. 300)' %}
+		{% elseif save_content|length < 5 %}
+            {% set notice = 'Độ dài văn bản tối thiểu từ 5 ký tự!' %}
+        {% endif %}
+<div class="mainblok">
+        {% if notice %}
+  <div class="rmenu">Lỗi rồi! {{notice}}</div>
+        {% else %}
+			{% if new_topic %}
+				{% set row_news = {'author':is_login(),'title':save_title,'content':save_content,'blogid':id_new_topic,'time':'now'|date('U')} %}
+				{% set slug_topic = rwurl(save_title) %}
+				{% set id_category = '14' %}{#cat: chưa phân loại#}
+				{% set row_blog = {'title':save_title,'slug':slug_topic,'content':save_content,'time':'now'|date('U'),'update_time':'now'|date('U'),'category':id_category,'user_view':is_login()~'.','author':is_login(),'comment':1,'chaplist':0,'chapTitle':2,'buyfile':0} %}
+				{% set save_blog = insert_row_array_table('blog', row_blog) %}
+				{% set id_new_topic = select_table_data('blog','id','asc')|last.id %}
+				{% set row_news = {'author':is_login(),'title':save_title,'content':save_content,'blogid':id_new_topic,'time':'now'|date('U')} %}
+			{% else %}
+				{% set row_news = {'author':is_login(),'title':save_title,'content':save_content,'time':'now'|date('U')} %}
+			{% endif %}
+			{% do insert_row_array_table('news', row_news) %}
+  <div class="gmenu">Đăng tin tức thành công!</div>
+			{{file_header('Refresh: 3; url=/news')}}
+		{% endif %}
+</div>
+	{% endif %}
+<div class="mainblok">
+	{{_self.form_news('add')}}
+</div>
+{#===END ĐĂNG TẢI TIN TỨC===#}
+{% else %}
+<div class="mainblok">
+	{% if news.id %}
+		{% if url[1] == 'edit' %}
+{#=====CHỈNH SỬA TIN TỨC=====#}
+	{% if request_method()|lower == 'post' %}
+		{% set save_title = get_post('title') %}
+		{% set save_content = get_post('msg') %}
+		{% if save_title|length not in 3..300 and rwurl(save_title) not in ['',null] %}
+			{% set notice = 'Độ dài tiêu đề không hợp lệ (Min. 3 - Max. 300)' %}
+		{% elseif save_content|length < 5 %}
+            {% set notice = 'Độ dài văn bản tối thiểu từ 5 ký tự!' %}
+        {% endif %}
+        {% if notice %}
+  <div class="rmenu">Lỗi rồi! {{notice}}</div>
+        {% else %}
+  			{% if save_title != news.title or save_content != news.content %}
+				{% set row_news = {'title':save_title,'content':save_content} %}
+				{% do update_row_array_table('news', row_news, 'id', news.id) %}
+  				{% if news.blogid not in ['',null,'0'] %}
+  					{% set row_blog = {'title':save_title,'slug':rwurl(save_title),'content':save_content} %}
+  					{% do update_row_array_table('blog', row_blog, 'id', news.blogid) %}
+  				{% endif %}
+  			{% endif %}
+  <div class="gmenu">Cập nhật tin tức thành công!</div>
+			{{file_header('Refresh: 3; url=/news/?id='~news.id)}}
+		{% endif %}
+	{% endif %}
+	{{_self.form_news('edit',news.title,news.content)}}
+{#===END CHỈNH SỬA TIN TỨC===#}
+  		{% else %}
+{#=====XOÁ TIN TỨC=====#}
+	{% if request_method()|lower == 'post' %}
+		{% if news.blogid not in ['',null,'0'] %}
+			{% do delete_row_table('blog', 'id', news.blogid) %}
+			{% do delete_row_table('file', 'box', news.blogid) %}
+			{% do delete_row_table('chap', 'blogid', news.blogid) %}
+			{% do delete_row_table('cmt', 'blogid', news.blogid) %}
+		{% endif %}
+		{% do delete_row_table('news', 'id', news.id) %}
+		{{redirect('/news')}}
+	{% endif %}
+  <div class="phdr"><i class="fa fa-trash" aria-hidden="true"></i> Xoá bài viết</div>
+  <div class="menu" style="text-align:center">
+    Bạn có thực sự muốn xoá bài viết: <a href="/news/edit?id=news.id">{{news.title}}</a> không?
+    <br/><b>Lưu ý:</b> Hành động này sẽ khiến các dữ liệu liên quan đều bị xoá sạch: tập tin, chapter, bình luận.
+    <form method="post">
+      <div><input type="submit" name="submit" value="Xác nhận" class="btn btn-primary"/></div>
+    </form>
+  </div>
+{#===END XOÁ TIN TỨC===#}
+  		{% endif %}
+	{% else %}
+  <div class="rmenu">Dữ liệu không đúng!</div>
+	{% endif %}
+</div>
+{% endif %}
+{#============================================================================#}
+{% else %}
+{% if is_login() and user.level >= '120' %}
+<div style="text-align:left;font-size:14px"><a href="/news/add" title="Đăng tin tức"><button type="button" class="btn btn-sm btn-success"><i class="fa fa-plus-circle" aria-hidden="true"></i> Đăng tin tức</button></a></div>
+{% endif %}
+<div class="mainblok">
+  {% for news in select_table_data('news', 'time', 'desc') %}
+  	{% if news.id %}
+  <div class="menu">
+    <div style="font-weight:600">{{news.title}}</div>
+    <div style="font-size:small;color:#444">Tác giả: {{maunick(news.author)}} ({{ago(news.time)}}){% if is_login() and user.level >= '120' %} [<a href="/news/edit?id={{news.id}}"><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Sửa</a>, <a href="/news/delete?id={{news.id}}"><i class="fa fa-trash" aria-hidden="true"></i> Xoá</a>]{% endif %}</div>
+    <div>
+      {% if news.blogid not in ['',null,'0'] %}{{description(bbcode(news.content),'150')|nl2br}}{% else %}{{bbcode(news.content)}}{% endif %}
+    </div>
+    {% if news.blogid not in ['',null,'0'] %}
+    	{% set blog = select_table_row_data('blog', 'id', news.blogid) %}
+    	{% set count_cmt = get_row_count('cmt', {'blogid':news.blogid, 'operator':'='})|default(0) %}
+    <div class="sub"></div>
+    <div style="text-align:right">
+      <a href="/forum/{{news.blogid}}-{{blog.slug}}.html" class="btn btn-primary btn-xs">Thảo luận <span class="badge">{{count_cmt}}</span></a>
+    </div>
+    {% endif %}
+  </div>
+  	{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endset %}
+{{block('w3_main4px')}}
+{#{% if is_login() %}{{block('chatbox')}}{% endif %}#}
+{{block('end')}}
